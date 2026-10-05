@@ -5,7 +5,8 @@
 #   1. the game's rules, by sourcing the script and calling its functions
 #   2. the word lists
 #   3. the layout at every terminal size, and a full render at several
-#   4. the real game in a detached tmux session (skipped when tmux is missing)
+#   4. self-update, against releases built here and served from file:// (needs curl)
+#   5. the real game in a detached tmux session (skipped when tmux is missing)
 #
 # The variables set here are read by the sourced script, which shellcheck can't see,
 # and `a && pass || fail` is safe because pass never fails.
@@ -76,6 +77,38 @@ new_game daily
 is "daily word is the same all day" "$first" "$ANSWER"
 is_word "$first" && pass "daily word is in the dictionary" || fail "daily word $first is not in the dictionary"
 
+newer() { version_newer "$1" "$2" && echo yes || echo no; }
+is "version: patch is newer" yes "$(newer 0.1.1 0.1.0)"
+is "version: compares numbers, not text" yes "$(newer 0.10.0 0.9.9)"
+is "version: equal is not newer" no "$(newer 1.2.3 1.2.3)"
+is "version: never downgrades" no "$(newer 0.1.0 0.2.0)"
+is "version: junk is not newer" no "$(newer 1.2.x 0.1.0)"
+
+# why_blocked <SELF_DIR> [MANAGED_BY] -> why that copy won't update itself
+why_blocked() {
+  local SELF_DIR=$1 MANAGED_BY=${2:-}
+  ST=()
+  if WORDL_NO_UPDATE='' update_blocked; then echo "$REPLY"; else echo "may update"; fi
+}
+mkdir -p "$TMP/own/words" "$TMP/Cellar/wordl/1/libexec/words" "$TMP/bare" "$TMP/ro/words"
+touch "$TMP/own/wordl" "$TMP/Cellar/wordl/1/libexec/wordl" "$TMP/ro/wordl"
+chmod a-w "$TMP/ro/wordl"
+is "update: a checkout is left alone" "running from a source checkout; use git pull" "$(why_blocked "$ROOT")"
+is "update: a package's copy is left alone" "installed with Homebrew; use brew upgrade wordl" "$(why_blocked "$TMP/own" "Homebrew; use brew upgrade wordl")"
+is "update: a Cellar path is left alone" "installed with Homebrew; use brew upgrade wordl" "$(why_blocked "$TMP/Cellar/wordl/1/libexec")"
+[[ $(why_blocked "$TMP/bare") == "it was not installed with install.sh"* ]] && pass "update: an unknown layout is left alone" || fail "update: an unknown layout: $(why_blocked "$TMP/bare")"
+if [[ -w $TMP/ro/wordl ]]; then
+  echo "skip  update: a read-only copy (running as root, everything is writable)"
+else
+  [[ $(why_blocked "$TMP/ro") == "its directory is not writable"* ]] && pass "update: a read-only copy is left alone" || fail "update: a read-only copy: $(why_blocked "$TMP/ro")"
+fi
+if command -v curl >/dev/null 2>&1; then
+  is "update: an install.sh copy may update" "may update" "$(why_blocked "$TMP/own")"
+fi
+is "update: WORDL_NO_UPDATE stops the check" "WORDL_NO_UPDATE is set" "$(SELF_DIR=$TMP/own MANAGED_BY='' WORDL_NO_UPDATE=1; update_blocked && echo "$REPLY")"
+is "update: asking explicitly ignores WORDL_NO_UPDATE" "running from a source checkout; use git pull" "$(SELF_DIR=$ROOT WORDL_NO_UPDATE=1; update_blocked forced && echo "$REPLY")"
+SELF_DIR=$ROOT
+
 # ------------------------------------------------------------ word lists ----
 
 for f in answers allowed; do
@@ -142,6 +175,51 @@ errors=$(
 )
 is "render: no errors at any size, in any theme or dialog" '' "$errors"
 
+# ----------------------------------------------------------- self-update ----
+
+# make_release <version> <dir>: a release of this tree, pretending to be <version>.
+make_release() {
+  local src=$TMP/src-$1 name
+  mkdir -p "$src" "$2"
+  cp -R wordl words LICENSE README.md packaging "$src/"
+  sed "s/^VERSION=.*/VERSION=\"$1\"/" wordl >"$src/wordl"
+  "$src/packaging/dist.sh" "$2" >/dev/null
+  name=wordl-$1.tar.gz
+  echo "$(sha256_of "$2/$name")  $name" >"$2/SHA256SUMS"
+}
+installed() { XDG_STATE_HOME="$TMP/ustate" "$BASH" "$TMP/bin/wordl" "$@" 2>&1; }
+fresh_install() {
+  WORDL_RELEASE_URL="file://$TMP/rel-now" WORDL_HOME="$TMP/home/wordl" WORDL_BIN_DIR="$TMP/bin" sh install.sh >/dev/null
+}
+
+if ! command -v curl >/dev/null 2>&1; then
+  echo "skip  self-update (curl is not installed)"
+else
+  NOW=$(packaging/version.sh)
+  make_release "$NOW" "$TMP/rel-now"
+  make_release 99.0.0 "$TMP/rel-new"
+  mkdir -p "$TMP/rel-bad"
+  cp "$TMP/rel-new/wordl-99.0.0.tar.gz" "$TMP/rel-bad/"
+  echo "0000000000000000000000000000000000000000000000000000000000000000  wordl-99.0.0.tar.gz" >"$TMP/rel-bad/SHA256SUMS"
+
+  fresh_install
+  is "install.sh: installs the release" "wordl $NOW" "$(installed --version)"
+  is "update: nothing newer" "wordl $NOW is up to date (latest release is $NOW)." "$(WORDL_RELEASE_URL="file://$TMP/rel-now" installed update)"
+  [[ $(WORDL_RELEASE_URL="file://$TMP/rel-bad" installed update) == *"checksum mismatch"* ]] && pass "update: refuses a bad checksum" || fail "update: a bad checksum was not refused"
+  is "update: a refused update changes nothing" "wordl $NOW" "$(installed --version)"
+  [[ $(WORDL_RELEASE_URL="file://$TMP/nowhere" installed update) == *"could not check for updates"* ]] && pass "update: reports an unreachable server" || fail "update: unreachable server"
+  [[ $(WORDL_RELEASE_URL="file://$TMP/rel-new" installed update) == *"Updated to 99.0.0."* ]] && pass "update: installs a newer release" || fail "update: did not install the newer release"
+  is "update: the new version runs" "wordl 99.0.0" "$(installed --version)"
+  is "update: never downgrades" "wordl 99.0.0 is up to date (latest release is $NOW)." "$(WORDL_RELEASE_URL="file://$TMP/rel-now" installed update)"
+
+  # What a package does when it installs: mark the copy as its own.
+  fresh_install
+  sed 's/^MANAGED_BY=""$/MANAGED_BY="Homebrew; use brew upgrade wordl"/' "$TMP/home/wordl/wordl" >"$TMP/marked"
+  cat "$TMP/marked" >"$TMP/home/wordl/wordl"
+  is "update: a copy marked by a package refuses" "wordl: this copy can't update itself: installed with Homebrew; use brew upgrade wordl" "$(WORDL_RELEASE_URL="file://$TMP/rel-new" installed update)"
+  fresh_install
+fi
+
 # --------------------------------------------------------- the real game ----
 
 if ! command -v tmux >/dev/null 2>&1; then
@@ -185,6 +263,26 @@ else
   keys C-q
   expect "game: quits cleanly" "EXIT=0"
   is "game: the win is saved" "practice_wins=1" "$(grep -x 'practice_wins=1' "$TMP/xdg/wordl/stats" 2>/dev/null)"
+
+  # Starting the installed copy when a newer release exists: it updates, then the game
+  # starts. Switched off, it starts without updating.
+  if command -v curl >/dev/null 2>&1; then
+    tmux -L "$SOCK" kill-server 2>/dev/null
+    launch() { # name -- starts the installed copy with a newer release on offer
+      tmux -L "$SOCK" new-session -d -x 80 -y 24 \
+        "env XDG_STATE_HOME='$TMP/ustate' WORDL_RELEASE_URL='file://$TMP/rel-new' WORDL_NO_ANIM=1 '$BASH' '$TMP/bin/wordl'; echo \"EXIT=\$?\"; sleep 20"
+      expect "$1" "W   O   R   D   L"
+      keys C-q
+      expect "$1, and quits" "EXIT=0"
+      tmux -L "$SOCK" kill-server 2>/dev/null
+    }
+    installed update off >/dev/null
+    launch "update: switched off, the game starts"
+    is "update: switched off, nothing is updated" "wordl $NOW" "$(installed --version)"
+    installed update on >/dev/null
+    launch "update: the game starts after updating itself"
+    is "update: starting the game installed the newer release" "wordl 99.0.0" "$(installed --version)"
+  fi
 fi
 
 echo

@@ -31,6 +31,7 @@ and it reads the lines from this file, so a line added here is required from the
 - [ ] `CLAUDE.md` is current: decisions, patterns to keep, known gaps
 - [ ] Word lists changed: `tools/build-words.py` was re-run and both lists are committed
 - [ ] Packaging changed: `PKGBUILD.in` and `SRCINFO.in` changed together, the archive's name and layout did not
+- [ ] The lines `#!/usr/bin/env bash`, `VERSION="..."` and `MANAGED_BY=""` in `wordl` are exactly as they were (the packages rewrite them)
 - [ ] The changes were played in a real terminal, including a tiny window, not only run through the tests
 - [ ] What only a Mac can show is listed in the pull request as not verified
 - [ ] Pull request titles since the last release read well as release notes
@@ -61,7 +62,8 @@ checking where it can.
    ```
 
 3. Installed copies. Homebrew: `brew update && brew upgrade wordl`, then
-   `wordl --version`. Copies from the install script: run the install script again.
+   `wordl --version`. Copies from the install script update themselves the next time
+   they start; `wordl update` does it at once.
 
 4. Confirm on a Mac whatever the pull request listed as not verified.
 

@@ -36,7 +36,8 @@ curl -fsSL https://raw.githubusercontent.com/anwarahmed/wordl/main/install.sh | 
 ```
 
 This downloads the latest release, checks its checksum, puts the game in
-`~/.local/share/wordl` and links it as `~/.local/bin/wordl`. Run it again to update.
+`~/.local/share/wordl` and links it as `~/.local/bin/wordl`. A copy installed this way
+keeps itself up to date (see [Updates](#updates)). The script needs `curl` and `tar`.
 It does not install bash: macOS ships bash 3.2, so on a Mac run `brew install bash`
 first (or use the Homebrew install above). To remove the game:
 
@@ -62,6 +63,31 @@ Remove it with `sudo pacman -R wordl`. (The package is not in the AUR yet.)
 git clone https://github.com/anwarahmed/wordl
 ./wordl/wordl
 ```
+
+## Updates
+
+| Installed with | How it updates |
+| -------------- | -------------- |
+| Install script | By itself: each time it starts it checks for a newer release, installs it and restarts |
+| Homebrew       | `brew upgrade wordl` |
+| Arch package   | Build the newer `PKGBUILD` the same way |
+| A clone        | `git pull` |
+
+Only the install script's copy updates itself. A copy that Homebrew or pacman owns is
+marked as theirs when it is installed and never touches its own files, and neither does
+a clone.
+
+For a copy that updates itself:
+
+```sh
+wordl update        # check now and install a newer release
+wordl update off    # stop checking at startup ("on" turns it back on)
+```
+
+`WORDL_NO_UPDATE=1` skips the check for one run. The check waits at most three seconds
+and says nothing when you are offline. An update is verified against the release's
+SHA-256 checksum, never moves to an older version, and replaces only the game's own
+files; if anything fails, the version you have starts as usual.
 
 ## Play
 
@@ -128,6 +154,7 @@ short as 7 rows). Truecolor is used when the terminal announces it (`COLORTERM`)
 
 ```
 wordl [options]
+wordl update [on|off]
 
   -p, --practice     start with a new random word (default)
   -d, --daily        start with today's puzzle
@@ -139,6 +166,10 @@ wordl [options]
       --no-animation skip the tile animations
   -v, --version      print the version
   -h, --help         show this help
+
+  wordl update       check for a newer release now and install it
+  wordl update off   stop checking at startup (on: check again)
+  WORDL_NO_UPDATE    set this variable to skip the check for one run
 ```
 
 The theme and difficulty you choose in the game are remembered.

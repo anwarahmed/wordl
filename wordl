@@ -7,7 +7,13 @@
 # are painted with half-block characters, so a letter is a small bitmap that
 # can be scaled, not a single terminal cell.
 
-VERSION="0.1.0"
+VERSION="0.1.1"
+
+# Empty in a copy that may update itself. A package that owns its copy rewrites this
+# line when it installs (the Homebrew formula and the AUR package both do), naming
+# itself and how to upgrade, and the game then leaves updating to it.
+MANAGED_BY=""
+RELEASES="https://github.com/anwarahmed/wordl/releases/latest/download"
 
 if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4))); then
   echo "wordl needs bash 4.4 or newer (this is $BASH_VERSION)." >&2
@@ -1148,6 +1154,164 @@ read_key() { # timeout -> KEY; fails on timeout
   return 0
 }
 
+# --------------------------------------------------------------- update ----
+
+# Self-update: at startup, compare this version with the latest release and, if that
+# is newer, download it over this copy and restart. Only a copy the user installed
+# with install.sh updates this way; a checkout or a copy owned by a package manager
+# is left alone.
+
+version_newer() { # a b -- true when version a (x.y.z) is higher than b
+  local i IFS=.
+  [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+  local -a x y
+  read -ra x <<<"$1"
+  read -ra y <<<"$2"
+  for i in 0 1 2; do
+    ((10#${x[i]} > 10#${y[i]})) && return 0
+    ((10#${x[i]} < 10#${y[i]})) && return 1
+  done
+  return 1
+}
+
+sha256_of() {
+  local sum
+  if command -v sha256sum >/dev/null 2>&1; then sum=$(sha256sum "$1"); else sum=$(shasum -a 256 "$1"); fi
+  echo "${sum%% *}"
+}
+
+# Succeeds, with the reason in REPLY, when this copy must not update itself. With an
+# argument the two off switches are ignored: `wordl update` asks for it explicitly.
+update_blocked() { # [forced]
+  local tool
+  if [[ -z ${1:-} && -n ${WORDL_NO_UPDATE:-} ]]; then
+    REPLY="WORDL_NO_UPDATE is set"
+  elif [[ -z ${1:-} && ${ST[update]:-1} == 0 ]]; then
+    REPLY="turned off; 'wordl update on' turns it back on"
+  elif [[ -n $MANAGED_BY ]]; then
+    REPLY="installed with $MANAGED_BY"
+  elif [[ $SELF_DIR == */Cellar/* ]]; then
+    # In case a formula ever forgets to set MANAGED_BY. SELF_DIR has symlinks resolved,
+    # so this sees through the link Homebrew puts in its bin directory.
+    REPLY="installed with Homebrew; use brew upgrade wordl"
+  elif [[ -e $SELF_DIR/.git ]]; then
+    REPLY="running from a source checkout; use git pull"
+  elif [[ ! -d $SELF_DIR/words ]]; then
+    REPLY="it was not installed with install.sh; update it the way you installed it"
+  elif [[ ! -w $SELF_DIR || ! -w $SELF_DIR/words || ! -w $SELF_DIR/wordl ]]; then
+    REPLY="its directory is not writable, so a package manager probably owns it; update it the way you installed it"
+  else
+    for tool in curl tar; do
+      command -v "$tool" >/dev/null 2>&1 || { REPLY="$tool is not installed"; return 0; }
+    done
+    command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1 || { REPLY="neither sha256sum nor shasum is installed"; return 0; }
+    return 1
+  fi
+}
+
+# The latest release, read from its checksum file -> LATEST_VERSION LATEST_SUM.
+# Fails with the reason in REPLY. Starting the game must not hang on a bad connection,
+# hence the short timeout.
+latest_release() {
+  local sums sum name
+  sums=$(curl -fsSL --max-time 3 "${WORDL_RELEASE_URL:-$RELEASES}/SHA256SUMS" 2>/dev/null) || {
+    REPLY="could not reach the release server"
+    return 1
+  }
+  while read -r sum name; do
+    name=${name#\*}
+    if [[ $name =~ ^wordl-([0-9]+\.[0-9]+\.[0-9]+)\.tar\.gz$ ]]; then
+      LATEST_VERSION=${BASH_REMATCH[1]} LATEST_SUM=$sum
+      return 0
+    fi
+  done <<<"$sums"
+  REPLY="the latest release lists no wordl archive"
+  return 1
+}
+
+# Download a release, check it, and put its files over this copy's. Fails with the
+# reason in REPLY, leaving this copy as it was.
+install_release() { # version checksum
+  local v=$1 want=$2 tmp got f new
+  tmp=$(mktemp -d) || { REPLY="could not create a temporary directory"; return 1; }
+  new=$tmp/wordl-$v
+  if ! curl -fsSL --max-time 120 "${WORDL_RELEASE_URL:-$RELEASES}/wordl-$v.tar.gz" -o "$tmp/wordl.tar.gz" 2>/dev/null; then
+    REPLY="could not download wordl-$v.tar.gz"
+  elif got=$(sha256_of "$tmp/wordl.tar.gz"); [[ ${got,,} != "${want,,}" ]]; then
+    REPLY="checksum mismatch for wordl-$v.tar.gz (expected $want, got $got)"
+  elif ! tar -xzf "$tmp/wordl.tar.gz" -C "$tmp" 2>/dev/null || [[ ! -f $new/wordl ]]; then
+    REPLY="wordl-$v.tar.gz could not be unpacked"
+  elif [[ $("$BASH" "$new/wordl" --version 2>/dev/null) != "wordl $v" ]]; then
+    REPLY="the downloaded archive is not wordl $v"
+  else
+    # Only this game's own files are replaced, never the directory, in case something
+    # else lives in it. Each file is written beside its target and renamed over it:
+    # the swap is atomic, and replacing a running script's file this way is safe. The
+    # script goes last, so a failure part-way leaves the old script in place.
+    REPLY=''
+    for f in words/answers.txt words/allowed.txt words/SCOWL-COPYRIGHT LICENSE README.md wordl; do
+      [[ -f $new/$f ]] || continue
+      if ! { cp "$new/$f" "$SELF_DIR/$f.new" && mv -f "$SELF_DIR/$f.new" "$SELF_DIR/$f"; } 2>/dev/null; then
+        rm -f "$SELF_DIR/$f.new"
+        REPLY="could not replace $SELF_DIR/$f"
+        break
+      fi
+    done
+  fi
+  rm -rf "$tmp"
+  [[ -z $REPLY ]]
+}
+
+# Called before the game starts, with the game's arguments. Updates and restarts when
+# a newer release exists; otherwise, or on any failure, returns so this version runs.
+update_before_start() {
+  update_blocked && return
+  latest_release || return # usually just offline: not worth a word on screen
+  version_newer "$LATEST_VERSION" "$VERSION" || return
+  echo "Updating wordl $VERSION -> $LATEST_VERSION"
+  if install_release "$LATEST_VERSION" "$LATEST_SUM"; then
+    # WORDL_NO_UPDATE on the restarted process: a failed or raced update can't loop.
+    WORDL_NO_UPDATE=1 exec "$BASH" "$SELF_DIR/wordl" "$@"
+    echo "wordl was updated; start it again to use the new version." >&2
+    exit 1
+  fi
+  echo "wordl: update failed ($REPLY); starting the current version." >&2
+  sleep 2
+}
+
+# `wordl update`: the same check on demand, reporting what happened.
+# `wordl update on|off`: the switch for the check at startup.
+update_command() {
+  case ${1:-} in
+    on | off)
+      [[ $1 == on ]] && ST[update]=1 || ST[update]=0
+      save_stats
+      echo "The update check at startup is $1."
+      return 0
+      ;;
+    '') ;;
+    *) echo "wordl: 'update' takes on, off or nothing" >&2; return 2 ;;
+  esac
+  if update_blocked forced; then
+    echo "wordl: this copy can't update itself: $REPLY" >&2
+    return 1
+  fi
+  if ! latest_release; then
+    echo "wordl: could not check for updates: $REPLY" >&2
+    return 1
+  fi
+  if ! version_newer "$LATEST_VERSION" "$VERSION"; then
+    echo "wordl $VERSION is up to date (latest release is $LATEST_VERSION)."
+    return 0
+  fi
+  echo "Updating wordl $VERSION -> $LATEST_VERSION"
+  if ! install_release "$LATEST_VERSION" "$LATEST_SUM"; then
+    echo "wordl: update failed: $REPLY" >&2
+    return 1
+  fi
+  echo "Updated to $LATEST_VERSION."
+}
+
 # ----------------------------------------------------------------- main ----
 
 usage() {
@@ -1155,6 +1319,7 @@ usage() {
 wordl $VERSION - a Wordle-style word game for the terminal
 
 Usage: wordl [options]
+       wordl update [on|off]
 
   -p, --practice     start with a new random word (default)
   -d, --daily        start with today's puzzle
@@ -1166,6 +1331,10 @@ Usage: wordl [options]
       --no-animation skip the tile animations
   -v, --version      print the version
   -h, --help         show this help
+
+  wordl update       check for a newer release now and install it
+  wordl update off   stop checking at startup (on: check again)
+  WORDL_NO_UPDATE    set this variable to skip the check for one run
 
 In the game: type letters, Enter to submit, Backspace to delete.
   ?  help        ^N new word             ^D daily puzzle    ^S statistics
@@ -1183,6 +1352,7 @@ cleanup() {
 
 main() {
   local self=${BASH_SOURCE[0]} dir opt_mode=practice opt_theme='' opt_hard='' timeout
+  local -a args=("$@")
   while [[ -L $self ]]; do
     dir=$(cd -P "$(dirname "$self")" && pwd)
     self=$(readlink "$self")
@@ -1193,8 +1363,15 @@ main() {
   ANIM=1
   [[ -n ${WORDL_NO_ANIM:-} ]] && ANIM=0
 
+  # Settings first: the update command and the update check both read and save them.
+  load_kv "$STATE_DIR/stats" ST
+  HARD=0
+  [[ ${ST[hard]:-0} == [12] ]] && HARD=${ST[hard]}
+  THEME=${ST[theme]:-midnight}
+
   while (($#)); do
     case $1 in
+      update) shift; update_command "$@"; exit ;;
       -d | --daily) opt_mode=daily ;;
       -p | --practice) opt_mode=practice ;;
       -t | --theme)
@@ -1224,13 +1401,13 @@ main() {
     export LC_ALL=C.UTF-8 # block characters and string lengths need UTF-8
   fi
 
+  update_before_start "${args[@]}"
+
   load_words
-  load_kv "$STATE_DIR/stats" ST
-  HARD=0
-  [[ ${opt_hard:-${ST[hard]:-0}} == [12] ]] && HARD=${opt_hard:-${ST[hard]}}
+  [[ -n $opt_hard ]] && HARD=$opt_hard
   TRUECOLOR=0
   [[ ${COLORTERM:-} == truecolor || ${COLORTERM:-} == 24bit ]] && TRUECOLOR=1
-  set_theme "${opt_theme:-${ST[theme]:-midnight}}"
+  set_theme "${opt_theme:-$THEME}"
   today
   ((${ST[daily_lastwin]:-0} < REPLY - 1)) && ST[daily_streak]=0
 

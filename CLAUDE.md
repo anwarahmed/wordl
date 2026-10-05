@@ -55,6 +55,7 @@ One file, in sections marked by `# ---- name ----` rulers, top to bottom:
 | game      | Word lists, `evaluate`, `hard_check`, `new_game`, statistics, save files |
 | animation | `shake`, `reveal`, `celebrate` |
 | actions   | What keys and clicks do: `submit`, `do_cmd`, `click`, `handle_key` |
+| update    | Self-update: `update_blocked`, `latest_release`, `install_release`, `update_before_start`, `update_command` |
 | input     | `read_key`: one key or mouse event per call |
 | main      | Options, terminal setup and teardown, the event loop |
 
@@ -144,16 +145,36 @@ One file, in sections marked by `# ---- name ----` rulers, top to bottom:
 - **The script finds its word lists** in `$WORDL_DATA_DIR`, then `words/` beside
   itself (after resolving symlinks: checkout, install script, Homebrew's `libexec`),
   then `../share/wordl` (the AUR package: `/usr/bin` and `/usr/share/wordl`).
-- **No self-update.** Package managers and re-running `install.sh` cover it, and a
-  program installed by a package manager must not rewrite itself (typeshelf learned
-  this the hard way with Homebrew).
+- **Self-update on start** (asked for by the user, as in typeshelf; 0.1.0 had none).
+  `update_before_start` reads the latest release's `SHA256SUMS` (3 s timeout, silent
+  when offline); the archive's name in it gives the version. If that is higher than
+  `VERSION` it downloads the archive, checks the checksum, runs the new script's
+  `--version` as a sanity check, copies the game's files over this copy's one by one
+  (written beside the target and renamed, script last), and re-execs with
+  `WORDL_NO_UPDATE=1` so it can't loop. It replaces files, never the directory, in
+  case the user put the script somewhere with other things in it. Any failure keeps
+  the current version. It never downgrades. `wordl update` does the same on demand and
+  says why when it can't; `wordl update off` stores `update=0` in the stats file.
+- **Package managers switch self-update off by rewriting one line.** The user asked
+  for the Homebrew tap to be what disables it. The script has `MANAGED_BY=""`; the
+  Homebrew formula (`inreplace`) and the AUR `PKGBUILD` (`sed`) set it to their name and
+  upgrade hint when they install, and `update_blocked` then refuses with "installed
+  with ...". Both fail the install if the line is not found, so **never reformat that
+  line** (nor the shebang, which the formula also rewrites). Behind that sit fallbacks:
+  a real path containing `Cellar` (symlinks resolved first; typeshelf once replaced
+  Homebrew's link on macOS because it had not resolved them), a `.git` beside the
+  script (a checkout), no `words/` beside it, or files that are not writable. The
+  tap's workflow runs `wordl update` on a Homebrew install on both platforms and fails
+  unless it refuses.
 - **Actions are pinned to commit hashes** with the version in a trailing comment;
   `.github/dependabot.yml` proposes newer pins monthly. Pin any action you add.
 - **Packaging.** Three channels, all fed by the release:
   - *Install script* - `install.sh`, POSIX sh: latest release into
-    `~/.local/share/wordl`, link in `~/.local/bin`, checksum verified.
-    `WORDL_RELEASE_URL` points it at another location (`file://` works; the release
-    workflow tests it that way on every packaging PR).
+    `~/.local/share/wordl`, link in `~/.local/bin`, checksum verified. This is the one
+    copy that updates itself. `WORDL_RELEASE_URL` points both the installer and the
+    updater at another location (a directory with `SHA256SUMS` and the archive;
+    `file://` works). The tests build two fake releases that way and update between
+    them, and the release workflow installs from one on every packaging PR.
   - *Homebrew* - `anwarahmed/homebrew-tap`. The `TAP_TOKEN` secret here lets a release
     start the tap's workflow and wait for the formula; without it the release run
     carries a "Homebrew tap not notified" warning and the tap catches up on its
@@ -187,7 +208,11 @@ tmux -L w resize-window -x 39 -y 12  # then look again
 tmux -L w kill-server
 ```
 
-`WORDL_DEBUG_ANSWER` fixes the practice word; `WORDL_NO_ANIM=1` skips animations. A
+`WORDL_DEBUG_ANSWER` fixes the practice word; `WORDL_NO_ANIM=1` skips animations.
+A checkout never updates itself, so to try the updater by hand use an installed copy:
+`WORDL_HOME=$X/home WORDL_BIN_DIR=$X/bin sh install.sh`, then run `$X/bin/wordl` with
+`WORDL_RELEASE_URL` pointing at a directory made the way `make_release` in
+`tests/run.sh` makes one. A
 mouse click is `tmux send-keys -l $'\e[<0;COL;ROWM'`.
 
 Traps when scripting tmux: `send-keys Escape` immediately followed by another key
@@ -202,6 +227,9 @@ running it; and never test the copy function against the real clipboard (put a f
 - The README pictures are drawn by `tools/screenshot.py` from tmux's cell data, not
   captured from a terminal window.
 - A resize during an animation is handled when the animation ends.
+- The update check runs on every start and adds a network round trip (about 0.4 s
+  measured on the user's machine) before the game appears; there is no once-a-day limit.
+- Copies of 0.1.0 have no updater; they need `install.sh` run once more.
 - At the smallest sizes (level 1) tiles in a column touch; there is no room for gaps.
 - Dialogs taller than the terminal lose their last lines.
 - No hover effects, no key-press flash on the on-screen keyboard.

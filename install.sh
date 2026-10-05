@@ -5,7 +5,7 @@
 #   ./install.sh --uninstall
 #
 # The game goes into ~/.local/share/wordl (WORDL_HOME) and a link to it into
-# ~/.local/bin (WORDL_BIN_DIR). Nothing else is touched: no shell profile is edited and
+# ~/.local/bin (WORDL_BIN_DIR). A copy installed this way updates itself when it starts. Nothing else is touched: no shell profile is edited and
 # bash is not installed for you. WORDL_RELEASE_URL points at another download location
 # (a directory holding SHA256SUMS and the archive; file:// works, which is how this
 # script is tested).

@@ -18,6 +18,9 @@ package() {
     cd "wordl-$pkgver"
     # The script looks for its word lists in ../share/wordl from where it is installed.
     install -Dm755 wordl "$pkgdir/usr/bin/wordl"
+    # pacman owns this copy, so tell the game not to update itself.
+    sed -i 's/^MANAGED_BY=""$/MANAGED_BY="pacman; update the wordl package"/' "$pkgdir/usr/bin/wordl"
+    grep -q '^MANAGED_BY="pacman' "$pkgdir/usr/bin/wordl"
     install -Dm644 -t "$pkgdir/usr/share/wordl" words/answers.txt words/allowed.txt
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 words/SCOWL-COPYRIGHT "$pkgdir/usr/share/licenses/$pkgname/SCOWL-COPYRIGHT"
