@@ -1,81 +1,162 @@
 #!/bin/sh
-# Installs the latest release of wordl for the current user, or updates it.
+# Installs wordl so `wordl` runs from anywhere. Works on macOS and Linux.
 #
 #   curl -fsSL https://raw.githubusercontent.com/anwarahmed/wordl/main/install.sh | sh
-#   ./install.sh --uninstall
 #
-# The game goes into ~/.local/share/wordl (WORDL_HOME) and a link to it into
-# ~/.local/bin (WORDL_BIN_DIR). A copy installed this way updates itself when it starts. Nothing else is touched: no shell profile is edited and
-# bash is not installed for you. WORDL_RELEASE_URL points at another download location
-# (a directory holding SHA256SUMS and the archive; file:// works, which is how this
-# script is tested).
+# Downloads the prebuilt binary of the latest release; builds from source only where
+# there is no prebuilt binary, or when asked to with --source.
 set -eu
 
 REPO="anwarahmed/wordl"
-home=${WORDL_HOME:-$HOME/.local/share/wordl}
-bin=${WORDL_BIN_DIR:-$HOME/.local/bin}
-base=${WORDL_RELEASE_URL:-https://github.com/$REPO/releases/latest/download}
+BIN_DIR="${WORDL_BIN_DIR:-$HOME/.local/bin}"
+TARGET="$BIN_DIR/wordl"
 
-die() { echo "install.sh: $*" >&2; exit 1; }
+usage() {
+    cat <<EOF
+Usage: install.sh [--source | --link | --uninstall]
 
-sha256() {
-    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
-    else shasum -a 256 "$1" | cut -d' ' -f1; fi
+  (no option)   download the latest release and install it to $BIN_DIR
+  --source      build from source instead (needs Rust 1.88+, git and a C compiler)
+  --link        build this checkout and symlink to it, so later rebuilds are
+                picked up without reinstalling (for development)
+  --uninstall   remove wordl from $BIN_DIR (statistics are kept)
+
+Set WORDL_BIN_DIR to install somewhere other than ~/.local/bin.
+EOF
 }
 
-uninstall() {
-    # Only remove the link if it is ours.
-    if [ -L "$bin/wordl" ] && [ "$(readlink "$bin/wordl")" = "$home/wordl" ]; then rm -f "$bin/wordl"; fi
-    rm -rf "$home"
-    echo "wordl is removed. Statistics are kept in ${XDG_STATE_HOME:-$HOME/.local/state}/wordl; delete that folder to remove them too."
+die() {
+    echo "install.sh: $*" >&2
+    exit 1
 }
 
-# Everything runs from this function, called on the last line, so the whole script has
-# arrived before any of it runs when it is piped into sh.
-main() {
-    case ${1:-} in
-        --uninstall) uninstall; exit 0 ;;
-        "") ;;
-        *) die "unknown option '$1' (the only option is --uninstall)" ;;
+mode=binary
+case "${1:-}" in
+    "") ;;
+    --source) mode=source ;;
+    --link) mode="link" ;;
+    --uninstall) mode=uninstall ;;
+    -h | --help) usage; exit 0 ;;
+    *) usage >&2; exit 1 ;;
+esac
+
+if [ "$mode" = uninstall ]; then
+    if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
+        rm -f "$TARGET"
+        echo "Removed $TARGET"
+    else
+        echo "Nothing to remove: $TARGET does not exist"
+    fi
+    exit 0
+fi
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# The release asset built for this machine; empty if there is none.
+asset_name() {
+    case "$(uname -s)-$(uname -m)" in
+        Linux-x86_64 | Linux-amd64) echo wordl-x86_64-unknown-linux-musl ;;
+        Linux-aarch64 | Linux-arm64) echo wordl-aarch64-unknown-linux-musl ;;
+        Darwin-arm64) echo wordl-aarch64-apple-darwin ;;
+        Darwin-x86_64) echo wordl-x86_64-apple-darwin ;;
     esac
+}
 
-    for tool in curl tar awk; do
-        command -v "$tool" >/dev/null 2>&1 || die "$tool is not installed"
-    done
-    command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1 || die "neither sha256sum nor shasum is installed"
-
-    tmp=$(mktemp -d)
-    trap 'rm -rf "$tmp"' EXIT
-
-    curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS" || die "could not download $base/SHA256SUMS"
-    archive=$(awk '{ sub(/^\*/, "", $2); if ($2 ~ /^wordl-[0-9][0-9A-Za-z.]*\.tar\.gz$/) { print $2; exit } }' "$tmp/SHA256SUMS")
-    [ -n "$archive" ] || die "the release lists no wordl archive"
-    want=$(awk -v f="$archive" '{ sub(/^\*/, "", $2); if ($2 == f) print $1 }' "$tmp/SHA256SUMS")
-    version=${archive#wordl-}
-    version=${version%.tar.gz}
-
-    curl -fsSL "$base/$archive" -o "$tmp/$archive" || die "could not download $base/$archive"
-    got=$(sha256 "$tmp/$archive")
-    [ "$got" = "$want" ] || die "checksum mismatch for $archive (expected $want, got $got)"
-
-    tar -xzf "$tmp/$archive" -C "$tmp"
-    [ -f "$tmp/wordl-$version/wordl" ] || die "$archive does not hold wordl-$version/wordl"
-
-    mkdir -p "$bin" "$(dirname "$home")"
-    rm -rf "$home"
-    mv "$tmp/wordl-$version" "$home"
-    chmod 755 "$home/wordl"
-    ln -sf "$home/wordl" "$bin/wordl"
-    echo "wordl $version is installed: $bin/wordl"
-
-    case ":$PATH:" in
-        *":$bin:"*) ;;
-        *) echo "Note: $bin is not on your PATH. Add it, or run $bin/wordl." ;;
-    esac
-    # shellcheck disable=SC2016 # the single quotes are for bash, which expands this itself
-    if ! bash -c '((BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4)))' 2>/dev/null; then
-        echo "Note: wordl needs bash 4.4 or newer and the bash on your PATH is older. On macOS: brew install bash"
+sha256_of() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | cut -d' ' -f1
+    else
+        shasum -a 256 "$1" | cut -d' ' -f1
     fi
 }
 
-main "$@"
+# Fetches the latest release's binary into $tmp/wordl. Fails (without exiting)
+# when there is nothing to download, so the caller can fall back to building.
+download_release() {
+    asset=$(asset_name)
+    [ -n "$asset" ] || { echo "No prebuilt binary for $(uname -s) $(uname -m)."; return 1; }
+    command -v curl >/dev/null 2>&1 || { echo "curl not found."; return 1; }
+    base="${WORDL_RELEASE_URL:-https://github.com/$REPO/releases/latest/download}"
+    echo "Downloading $asset"
+    curl -fsSL "$base/$asset" -o "$tmp/wordl" || { echo "Could not download a release binary."; return 1; }
+    curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS" || die "could not download the release checksums"
+    want=$(awk -v f="$asset" '$2 == f || $2 == "*" f { print $1 }' "$tmp/SHA256SUMS")
+    [ -n "$want" ] || die "the release has no checksum for $asset"
+    got=$(sha256_of "$tmp/wordl")
+    [ "$want" = "$got" ] || die "checksum mismatch for $asset (expected $want, got $got)"
+}
+
+# Prints the directory of a source tree to build: the checkout this script is in or
+# was run from, else a fresh clone.
+source_dir() {
+    case "$0" in
+        */*)
+            dir=$(cd "$(dirname "$0")" && pwd)
+            if [ -f "$dir/Cargo.toml" ]; then
+                echo "$dir"
+                return
+            fi
+            ;;
+    esac
+    if [ -f ./Cargo.toml ] && grep -q '^name = "wordl"' ./Cargo.toml; then
+        pwd
+        return
+    fi
+    [ "$mode" != link ] || die "--link needs a checkout; clone the repo and run ./install.sh --link from it"
+    command -v git >/dev/null 2>&1 || die "git not found; it is needed to fetch the source"
+    echo "Fetching https://github.com/$REPO" >&2
+    git clone --quiet --depth 1 "https://github.com/$REPO.git" "$tmp/src"
+    echo "$tmp/src"
+}
+
+build() {
+    command -v cargo >/dev/null 2>&1 || die "cargo not found. Install Rust first: https://rustup.rs"
+    src=$(source_dir)
+    echo "Building wordl (the first build takes a minute or two)"
+    (cd "$src" && cargo build --release --locked)
+    built="$src/target/release/wordl"
+    [ -x "$built" ] || die "build finished but $built is missing"
+}
+
+if [ "$mode" = binary ]; then
+    if download_release; then
+        built="$tmp/wordl"
+    else
+        echo "Building from source instead."
+        mode=source
+    fi
+fi
+[ "$mode" = binary ] || build
+
+mkdir -p "$BIN_DIR"
+# Up to 0.1.2 wordl was a bash script kept in ~/.local/share/wordl with a link to it
+# in the bin directory. The link is replaced below; this removes what it pointed to.
+OLD_HOME="${WORDL_HOME:-$HOME/.local/share/wordl}"
+if [ -f "$OLD_HOME/wordl" ] && [ -d "$OLD_HOME/words" ] && head -n 1 "$OLD_HOME/wordl" | grep -q bash; then
+    rm -rf "$OLD_HOME"
+    echo "Removed the old script version in $OLD_HOME"
+fi
+# Remove first: replaces a symlink rather than writing through it, and is safe while
+# an older copy is still running.
+rm -f "$TARGET"
+if [ "$mode" = link ]; then
+    ln -s "$built" "$TARGET"
+    echo "Linked $TARGET -> $built"
+else
+    cp "$built" "$TARGET"
+    chmod 755 "$TARGET"
+    echo "Installed $TARGET"
+fi
+"$TARGET" --version
+
+case ":$PATH:" in
+    *":$BIN_DIR:"*) echo "Run it with: wordl" ;;
+    *)
+        echo
+        echo "$BIN_DIR is not on your PATH. Add this line to your shell profile"
+        echo "(~/.zshrc on macOS, ~/.bashrc on Linux), then open a new terminal:"
+        echo
+        echo "  export PATH=\"$BIN_DIR:\$PATH\""
+        ;;
+esac

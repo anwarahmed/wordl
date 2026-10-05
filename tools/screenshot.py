@@ -5,7 +5,7 @@ Usage: tools/screenshot.py <tmux socket name> <output.png> [background r,g,b]
 
 Run the game in a detached tmux session first, e.g.
 
-    tmux -L shot new-session -d -x 150 -y 46 "COLORTERM=truecolor ./wordl"
+    tmux -L shot new-session -d -x 150 -y 46 "COLORTERM=truecolor target/release/wordl"
     tmux -L shot send-keys -l slate; tmux -L shot send-keys Enter
     tools/screenshot.py shot assets/screenshot.png
 

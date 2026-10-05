@@ -10,18 +10,13 @@ head=$2
 body=$3
 checklist=$(dirname "$0")/../../RELEASING.md
 
-if [ -z "$head" ]; then
-    echo "::error title=No version::The wordl script has no VERSION=\"...\" line."
-    exit 1
-fi
-
 if [ "$base" = "$head" ]; then
     echo "The version is unchanged ($head): not a release, nothing to check."
     exit 0
 fi
 
 if [ "$(printf '%s\n%s\n' "$base" "$head" | sort -V | tail -n 1)" != "$head" ]; then
-    echo "::error title=Version goes backwards::wordl has $head but main has $base."
+    echo "::error title=Version goes backwards::Cargo.toml has $head but main has $base."
     exit 1
 fi
 

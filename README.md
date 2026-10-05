@@ -1,7 +1,7 @@
 # wordl
 
-A Wordle-style word game for the terminal, written in bash. Guess the hidden
-five-letter word in six tries.
+A Wordle-style word game for the terminal. Guess the hidden five-letter word in six
+tries.
 
 ![wordl in a large terminal: block-letter tiles on the left, keyboard on the right](assets/screenshot.png)
 
@@ -18,7 +18,8 @@ five-letter word in six tries.
 
 ## Install
 
-wordl runs on macOS and Linux. It needs **bash 4.4 or newer** and a UTF-8 terminal.
+wordl runs on macOS and Linux, on Intel and ARM. It is a single program with nothing
+else to install; the terminal needs UTF-8, which every current one has.
 
 ### Homebrew (macOS and Linux)
 
@@ -26,8 +27,7 @@ wordl runs on macOS and Linux. It needs **bash 4.4 or newer** and a UTF-8 termin
 brew install anwarahmed/tap/wordl
 ```
 
-Homebrew brings its own current bash, so nothing else is needed. Update with
-`brew upgrade wordl`, remove with `brew uninstall wordl`.
+Update with `brew upgrade wordl`, remove with `brew uninstall wordl`.
 
 ### Install script
 
@@ -35,34 +35,43 @@ Homebrew brings its own current bash, so nothing else is needed. Update with
 curl -fsSL https://raw.githubusercontent.com/anwarahmed/wordl/main/install.sh | sh
 ```
 
-This downloads the latest release, checks its checksum, puts the game in
-`~/.local/share/wordl` and links it as `~/.local/bin/wordl`. A copy installed this way
-keeps itself up to date (see [Updates](#updates)). The script needs `curl` and `tar`.
-It does not install bash: macOS ships bash 3.2, so on a Mac run `brew install bash`
-first (or use the Homebrew install above). To remove the game:
+This downloads the latest release for your machine, checks its checksum, and puts it
+in `~/.local/bin` (set `WORDL_BIN_DIR` for somewhere else). A copy installed this way
+keeps itself up to date (see [Updates](#updates)). Where there is no prebuilt binary
+it builds from source instead, which needs Rust. To remove the game:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/anwarahmed/wordl/main/install.sh | sh -s -- --uninstall
 ```
 
+If you installed 0.1.x, which was a bash script, run the install script once more: it
+replaces the script with the program and removes what the script left behind. Your
+statistics carry over.
+
 ### Arch Linux
 
 Each [release](https://github.com/anwarahmed/wordl/releases/latest) carries a
-`PKGBUILD`. Download it into an empty directory and build the package:
+`PKGBUILD` for the package `wordl-bin`. Download it into an empty directory and build:
 
 ```sh
 curl -fsSLO https://github.com/anwarahmed/wordl/releases/latest/download/PKGBUILD
 makepkg -si
 ```
 
-Remove it with `sudo pacman -R wordl`. (The package is not in the AUR yet.)
+Remove it with `sudo pacman -R wordl-bin`. (The package is not in the AUR yet.)
 
-### From a clone
+### From source
+
+Needs Rust 1.88 or newer.
 
 ```sh
 git clone https://github.com/anwarahmed/wordl
-./wordl/wordl
+cd wordl
+cargo run --release
 ```
+
+`./install.sh --source` builds and installs in one step; `./install.sh --link` links
+`~/.local/bin/wordl` to the checkout's build, for development.
 
 ## Updates
 
@@ -71,11 +80,11 @@ git clone https://github.com/anwarahmed/wordl
 | Install script | By itself: each time it starts it checks for a newer release, installs it and restarts |
 | Homebrew       | `brew upgrade wordl` |
 | Arch package   | Build the newer `PKGBUILD` the same way |
-| A clone        | `git pull` |
+| From source    | `git pull`, then build again |
 
 Only the install script's copy updates itself. A copy that Homebrew or pacman owns is
-marked as theirs when it is installed and never touches its own files, and neither does
-a clone.
+marked as theirs when it is installed and never touches its own file, and neither does
+a build run from a checkout.
 
 For a copy that updates itself:
 
@@ -86,8 +95,8 @@ wordl update off    # stop checking at startup ("on" turns it back on)
 
 `WORDL_NO_UPDATE=1` skips the check for one run. The check waits at most three seconds
 and says nothing when you are offline. An update is verified against the release's
-SHA-256 checksum, never moves to an older version, and replaces only the game's own
-files; if anything fails, the version you have starts as usual.
+SHA-256 checksum and never moves to an older version; if anything fails, the version
+you have starts as usual.
 
 ## Play
 
@@ -158,26 +167,25 @@ fits. The smallest usable size is 39 columns by 12 rows (a wide terminal can be 
 short as 7 rows). Truecolor is used when the terminal announces it (`COLORTERM`),
 256 colors otherwise.
 
+While the game runs it captures the mouse, so selecting text in the terminal needs
+Shift (Option in macOS Terminal).
+
 ## Options
 
 ```
-wordl [options]
-wordl update [on|off]
+wordl [options]           play
+wordl update              check for a newer release now and install it
+wordl update off | on     stop, or resume, checking when the game starts
+wordl --help | --version | --licenses
 
-  -p, --practice     start with a new random word (default)
-  -d, --daily        start with today's puzzle
-  -t, --theme NAME   midnight daylight neon contrast terminal
-      --normal       any dictionary word is a valid guess
-      --hard         green letters stay fixed, yellow letters must be reused
-      --ultra        ultra hard: also, yellow letters must move to another
-                     spot and gray letters may not be played again
-      --no-animation skip the tile animations
-  -v, --version      print the version
-  -h, --help         show this help
-
-  wordl update       check for a newer release now and install it
-  wordl update off   stop checking at startup (on: check again)
-  WORDL_NO_UPDATE    set this variable to skip the check for one run
+  -p, --practice            start with a new random word (default)
+  -d, --daily               start with today's puzzle
+  -t, --theme NAME          midnight, daylight, neon, contrast or terminal
+      --normal              any dictionary word is a valid guess
+      --hard                green letters stay fixed, yellow letters must be reused
+      --ultra               ultra hard: also, yellow letters must move to another
+                            spot and gray letters may not be played again
+      --no-animation        skip the tile animations
 ```
 
 The theme and difficulty you choose in the game are remembered.
@@ -191,7 +199,7 @@ start over.
 ## Word lists
 
 The words come from [SCOWL](http://wordlist.aspell.net/) by Kevin Atkinson, not from
-any other game:
+any other game. The lists are built into the program:
 
 - `words/allowed.txt` - about 11,400 five-letter words accepted as guesses.
 - `words/answers.txt` - about 2,000 common ones a puzzle can be, with plurals and
@@ -202,17 +210,19 @@ any other game:
 ## Development
 
 ```sh
-tests/run.sh          # rules, word lists, layout at every size, and the real game in tmux
-shellcheck wordl
+cargo test                                   # rules, word lists, layout at every size, drawing
+cargo clippy --all-targets -- -D warnings
+cargo build --release && tests/e2e.sh        # the real program in tmux, install.sh, the updater
 ```
 
-See [CLAUDE.md](CLAUDE.md) for how the script is put together and
+See [CLAUDE.md](CLAUDE.md) for how the code is put together and
 [RELEASING.md](RELEASING.md) for how releases are made.
 
 ## License
 
 The game is [MIT licensed](LICENSE). The word lists are derived from SCOWL and carry
-its notice in [`words/SCOWL-COPYRIGHT`](words/SCOWL-COPYRIGHT).
+its notice in [`words/SCOWL-COPYRIGHT`](words/SCOWL-COPYRIGHT); `wordl --licenses`
+prints both.
 
 wordl is an independent project and is not affiliated with Wordle or The New York
 Times.
