@@ -735,7 +735,8 @@ load_kv() { # file assoc-name -- reads key=value lines, ignoring anything odd
   local -n dest=$2
   [[ -r $1 ]] || return 1
   while IFS='=' read -r k v; do
-    [[ $k =~ ^[a-z0-9_]+$ && $v =~ ^[A-Za-z0-9,]*$ ]] && dest[$k]=$v
+    # shellcheck disable=SC2034 # dest is a nameref: this writes the caller's array
+    [[ $k =~ ^[a-z0-9_]+$ && $v =~ ^[A-Za-z0-9,]*$ ]] && dest["$k"]=$v
   done <"$1"
 }
 
@@ -1272,4 +1273,7 @@ main() {
   done
 }
 
-main "$@"
+# Sourcing the file (tests/run.sh does) defines everything without starting the game.
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi

@@ -1,82 +1,179 @@
 # wordl
 
-A Wordle-style word game for the terminal, written in bash.
+A Wordle-style word game for the terminal, written in bash. Guess the hidden
+five-letter word in six tries.
 
-The game fills the whole terminal and rescales when the window is resized:
-on a large terminal the tiles and keys are drawn as big block-art letters, on
-a small one they shrink down to single characters (minimum 39x12). Wide
-terminals put the keyboard beside the board, tall ones put it underneath.
+![wordl in a large terminal: block-letter tiles on the left, keyboard on the right](assets/screenshot.png)
 
-## Run
+- **Fills the terminal and follows its size.** On a large terminal the tiles and keys
+  are big block letters; on a small one they shrink to single characters. Wide
+  terminals put the keyboard beside the board, tall ones underneath.
+- **Keyboard first, mouse welcome.** Everything has a key; the on-screen keyboard and
+  every button can also be clicked.
+- **A new word every time**, plus one daily puzzle that is the same for everyone.
+- **Three difficulty levels**, five color themes, statistics with streaks, and a
+  result you can copy and share.
 
-    ./wordl
+<img src="assets/screenshot-small.png" width="480" alt="wordl in an 80x24 terminal">
 
-Needs bash 4.4 or newer and a UTF-8 terminal. macOS ships bash 3.2, so
-install a current one there first (`brew install bash`).
+## Install
 
-    wordl --daily            today's puzzle instead of a random word
-    wordl --theme neon       midnight, daylight, neon, contrast, terminal
-    wordl --hard             or --ultra / --normal: the difficulty (see below)
-    wordl --no-animation
-    wordl --help
+wordl runs on macOS and Linux. It needs **bash 4.4 or newer** and a UTF-8 terminal.
+
+### Homebrew (macOS and Linux)
+
+```sh
+brew install anwarahmed/tap/wordl
+```
+
+Homebrew brings its own current bash, so nothing else is needed. Update with
+`brew upgrade wordl`, remove with `brew uninstall wordl`.
+
+### Install script
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/anwarahmed/wordl/main/install.sh | sh
+```
+
+This downloads the latest release, checks its checksum, puts the game in
+`~/.local/share/wordl` and links it as `~/.local/bin/wordl`. Run it again to update.
+It does not install bash: macOS ships bash 3.2, so on a Mac run `brew install bash`
+first (or use the Homebrew install above). To remove the game:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/anwarahmed/wordl/main/install.sh | sh -s -- --uninstall
+```
+
+### Arch Linux
+
+Each [release](https://github.com/anwarahmed/wordl/releases/latest) carries a
+`PKGBUILD`. Download it into an empty directory and build the package:
+
+```sh
+curl -fsSLO https://github.com/anwarahmed/wordl/releases/latest/download/PKGBUILD
+makepkg -si
+```
+
+Remove it with `sudo pacman -R wordl`. (The package is not in the AUR yet.)
+
+### From a clone
+
+```sh
+git clone https://github.com/anwarahmed/wordl
+./wordl/wordl
+```
 
 ## Play
 
-Type a five-letter word and press Enter. Green: right letter, right spot.
-Yellow: right letter, wrong spot. Gray: not in the word. Six tries.
+Type a five-letter word and press Enter. Each tile then tells you how close you were:
 
-| Key         | Action                                      |
-| ----------- | ------------------------------------------- |
-| `A`-`Z`     | type a letter                               |
-| `Enter`     | submit the guess                            |
-| `Backspace` | delete a letter                             |
-| `?` / `F1`  | help                                        |
-| `Ctrl-N`    | new game with a random word                 |
-| `Ctrl-D`    | today's daily puzzle (same word for everyone) |
-| `Ctrl-S`    | statistics                                  |
-| `Ctrl-T`    | next color theme                            |
-| `Ctrl-X`    | next difficulty                             |
-| `Ctrl-L`    | redraw                                      |
-| `Ctrl-Q`    | quit                                        |
+| Tile   | Meaning                                |
+| ------ | -------------------------------------- |
+| Green  | the letter is in the word, in this spot |
+| Yellow | the letter is in the word, elsewhere   |
+| Gray   | the letter is not in the word          |
 
-## Difficulty
+The on-screen keyboard keeps track of what you know about each letter.
 
-`Ctrl-X` cycles through three levels. A game that is under way can be made
-easier at any time; a harder level applies from the next game.
+| Key         | Action                                   |
+| ----------- | ---------------------------------------- |
+| `A`-`Z`     | type a letter                            |
+| `Enter`     | submit the guess                         |
+| `Backspace` | delete a letter                          |
+| `?` or `F1` | help                                     |
+| `Ctrl-N`    | new game with a random word              |
+| `Ctrl-D`    | today's daily puzzle                     |
+| `Ctrl-S`    | statistics                               |
+| `Ctrl-T`    | next color theme                         |
+| `Ctrl-X`    | next difficulty                          |
+| `Ctrl-L`    | redraw the screen                        |
+| `Ctrl-Q`    | quit                                     |
+
+### Practice and the daily puzzle
+
+Every launch, and every `Ctrl-N`, starts a practice game with a new random word. The
+daily puzzle (`Ctrl-D`, or `wordl --daily`) is one word a day, the same for everyone on
+the same date; it is the one game that is picked up where you left it. Statistics are
+kept separately for the two.
+
+### Difficulty
+
+`Ctrl-X` cycles through three levels. A game that is under way can be made easier at
+any time; a harder level applies from the next game.
 
 - **Normal** - guesses must be valid dictionary words.
-- **Hard** - Wordle's hard mode: green letters must stay fixed and yellow
-  letters must be reused.
-- **Ultra Hard** - stricter still: yellow letters must also move away from
-  the spot where they were clued, and gray clues must be obeyed (a gray
-  letter can't be played again, beyond the copies of it already shown as
-  green or yellow).
+- **Hard** - Wordle's hard mode: green letters must stay fixed and yellow letters must
+  be reused.
+- **Ultra Hard** - stricter still: yellow letters must also move away from the spot
+  where they were clued, and gray clues must be obeyed (a gray letter can't be played
+  again, beyond the copies of it already shown as green or yellow).
 
-Shared results mark Hard with `*` and Ultra Hard with `**`.
+A refused guess says which clue it breaks. Shared results mark Hard with `*` and Ultra
+Hard with `**`.
 
-The on-screen keyboard, the footer buttons and the dialog buttons can all be
-clicked with the mouse.
+### Themes
 
-The `terminal` theme uses the terminal's own 16 colors, so it follows your
-terminal theme. `contrast` swaps green/yellow for orange/blue.
+`midnight` (the default), `daylight`, `neon`, `contrast` and `terminal`. `contrast`
+uses orange and blue instead of green and yellow, for color-blind players. `terminal`
+uses only your terminal's own 16 colors, so it follows your terminal theme.
 
-Every launch starts a new random word. The daily puzzle (`Ctrl-D`) is the
-one thing that resumes, because there is only one word a day.
+### Terminal size
 
-Statistics, the daily puzzle's progress and the chosen settings are saved in
-`$XDG_STATE_HOME/wordl` (default `~/.local/state/wordl`).
+The game redraws itself when the window is resized and picks the largest board that
+fits. The smallest usable size is 39 columns by 12 rows (a wide terminal can be as
+short as 7 rows). Truecolor is used when the terminal announces it (`COLORTERM`),
+256 colors otherwise.
+
+## Options
+
+```
+wordl [options]
+
+  -p, --practice     start with a new random word (default)
+  -d, --daily        start with today's puzzle
+  -t, --theme NAME   midnight daylight neon contrast terminal
+      --normal       any dictionary word is a valid guess
+      --hard         green letters stay fixed, yellow letters must be reused
+      --ultra        ultra hard: also, yellow letters must move to another
+                     spot and gray letters may not be played again
+      --no-animation skip the tile animations
+  -v, --version      print the version
+  -h, --help         show this help
+```
+
+The theme and difficulty you choose in the game are remembered.
 
 ## Files
 
-    wordl                  the game
-    words/answers.txt      words a puzzle can be
-    words/allowed.txt      words accepted as guesses
-    tools/build-words.py   regenerates both lists from SCOWL
+Statistics, the daily puzzle's progress and your settings are plain text files in
+`$XDG_STATE_HOME/wordl` (`~/.local/state/wordl` by default). Delete the folder to
+start over.
 
-The script looks for the word lists in `$WORDL_DATA_DIR`, then `words/` next
-to itself, then `../share/wordl`.
+## Word lists
 
-## Credits
+The words come from [SCOWL](http://wordlist.aspell.net/) by Kevin Atkinson, not from
+any other game:
 
-Word lists are derived from [SCOWL](http://wordlist.aspell.net/) by Kevin
-Atkinson; see `words/SCOWL-COPYRIGHT`. The game itself is MIT licensed.
+- `words/allowed.txt` - about 11,400 five-letter words accepted as guesses.
+- `words/answers.txt` - about 2,000 common ones a puzzle can be, with plurals and
+  simple inflections filtered out.
+
+`tools/build-words.py` regenerates both from a SCOWL download.
+
+## Development
+
+```sh
+tests/run.sh          # rules, word lists, layout at every size, and the real game in tmux
+shellcheck wordl
+```
+
+See [CLAUDE.md](CLAUDE.md) for how the script is put together and
+[RELEASING.md](RELEASING.md) for how releases are made.
+
+## License
+
+The game is [MIT licensed](LICENSE). The word lists are derived from SCOWL and carry
+its notice in [`words/SCOWL-COPYRIGHT`](words/SCOWL-COPYRIGHT).
+
+wordl is an independent project and is not affiliated with Wordle or The New York
+Times.

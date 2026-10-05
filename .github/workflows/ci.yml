@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # The ruleset on main requires these jobs by name: "test (ubuntu-latest)",
+  # "test (macos-latest)" and "bash 4.4".
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tmux shellcheck
+          echo "TEST_BASH=$(command -v bash)" >> "$GITHUB_ENV"
+      - name: Tools (macOS)
+        # macOS ships bash 3.2, which wordl does not support; users install a newer one
+        # with Homebrew, so that is the one tested.
+        if: runner.os == 'macOS'
+        run: |
+          brew install bash tmux shellcheck
+          echo "TEST_BASH=$(brew --prefix)/bin/bash" >> "$GITHUB_ENV"
+      - run: shellcheck wordl tests/run.sh install.sh packaging/*.sh packaging/aur/render.sh .github/scripts/*.sh
+      - run: '"$TEST_BASH" tests/run.sh'
+
+  # The oldest bash the script claims to support (the check at its top). Keep the two
+  # in step.
+  oldest-bash:
+    name: bash 4.4
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker run --rm -v "$PWD:/src" -w /src bash:4.4 sh -c 'apk add --no-cache tmux >/dev/null && bash tests/run.sh'

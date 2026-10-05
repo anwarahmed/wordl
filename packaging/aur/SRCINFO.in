@@ -1,0 +1,13 @@
+pkgbase = wordl
+	pkgdesc = A Wordle-style word game for the terminal
+	pkgver = @VERSION@
+	pkgrel = 1
+	url = https://github.com/anwarahmed/wordl
+	arch = any
+	license = MIT
+	license = LicenseRef-SCOWL
+	depends = bash
+	source = https://github.com/anwarahmed/wordl/releases/download/v@VERSION@/wordl-@VERSION@.tar.gz
+	sha256sums = @SHA_ARCHIVE@
+
+pkgname = wordl
