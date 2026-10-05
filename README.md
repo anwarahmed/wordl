@@ -112,6 +112,7 @@ The on-screen keyboard keeps track of what you know about each letter.
 | `Ctrl-S`    | statistics                               |
 | `Ctrl-T`    | next color theme                         |
 | `Ctrl-X`    | next difficulty                          |
+| `Ctrl-G`    | give up and see the word                 |
 | `Ctrl-L`    | redraw the screen                        |
 | `Ctrl-Q`    | quit                                     |
 
@@ -136,6 +137,13 @@ any time; a harder level applies from the next game.
 
 A refused guess says which clue it breaks. Shared results mark Hard with `*` and Ultra
 Hard with `**`.
+
+### Giving up
+
+When a game is going nowhere, which happens most on Hard and Ultra Hard, `Ctrl-G` ends
+it. The game asks first, then shows the word on the board and counts the game as a
+loss. From the statistics that follow, Enter starts the next word. A daily puzzle that
+was given up stays given up for the day.
 
 ### Themes
 

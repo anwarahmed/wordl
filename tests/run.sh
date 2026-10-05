@@ -77,6 +77,24 @@ new_game daily
 is "daily word is the same all day" "$first" "$ANSWER"
 is_word "$first" && pass "daily word is in the dictionary" || fail "daily word $first is not in the dictionary"
 
+# Giving up the daily puzzle: it is a loss, and it is still given up when reopened.
+COLS=80 ROWS=24
+layout
+add_guess SLATE
+do_cmd giveup >/dev/null
+is "give up: asks first" "giveup playing" "$MODAL $STATE"
+do_cmd surrender >/dev/null
+is "give up: the game is lost" "lost 1" "$STATE $GAVE_UP"
+is "give up: counts as a played game, not a win" "1 0" "${ST[daily_played]:-0} ${ST[daily_wins]:-0}"
+new_game daily
+is "give up: the daily puzzle stays given up" "lost 1 1" "$STATE $GAVE_UP ${#GUESSES[@]}"
+do_cmd surrender >/dev/null
+is "give up: only once" 1 "${ST[daily_played]:-0}"
+new_game practice
+is "give up: the next game starts clean" "playing 0" "$STATE $GAVE_UP"
+ST=() MODAL=''
+rm -rf "$STATE_DIR"
+
 newer() { version_newer "$1" "$2" && echo yes || echo no; }
 is "version: patch is newer" yes "$(newer 0.1.1 0.1.0)"
 is "version: compares numbers, not text" yes "$(newer 0.10.0 0.9.9)"
@@ -161,7 +179,7 @@ errors=$(
     for size in 39x12 80x24 60x20 100x30 120x40 190x50 250x70 30x8; do
       COLS=${size%x*} ROWS=${size#*x}
       layout
-      for MODAL in '' help stats; do
+      for MODAL in '' help stats giveup; do
         for theme in "${THEMES[@]}"; do
           set_theme "$theme"
           render
@@ -263,6 +281,29 @@ else
   keys C-q
   expect "game: quits cleanly" "EXIT=0"
   is "game: the win is saved" "practice_wins=1" "$(grep -x 'practice_wins=1' "$TMP/xdg/wordl/stats" 2>/dev/null)"
+
+  # Giving up: a question first, then the answer, then on to the next word.
+  tmux -L "$SOCK" kill-server 2>/dev/null
+  tmux -L "$SOCK" new-session -d -x 80 -y 24 \
+    "env XDG_STATE_HOME='$TMP/xdg2' WORDL_DEBUG_ANSWER=crane WORDL_NO_ANIM=1 WORDL_NO_UPDATE=1 '$BASH' '$ROOT/wordl' --ultra; echo \"EXIT=\$?\"; sleep 20"
+  expect "give up: game starts" "Ultra Hard"
+  keys -l slate; keys Enter
+  keys C-g
+  expect "give up: asks first" "GIVE UP?"
+  keys Escape
+  sleep 0.3
+  expect "give up: Esc keeps playing" "Q   W   E   R   T"
+  keys C-g
+  expect "give up: asks again" "GIVE UP?"
+  keys Enter
+  expect "give up: shows the answer on the board" "█ C █  █ R █  █ A █  █ N █  █ E █"
+  expect "give up: says the word" "The word was CRANE"
+  expect "give up: statistics follow" "You gave up"
+  keys Enter
+  sleep 0.3
+  if screen | grep -qF "S      L      A"; then fail "give up: Enter did not start the next word"; else pass "give up: Enter starts the next word"; fi
+  is "give up: saved as a loss" "practice_played=1" "$(grep -x 'practice_played=1' "$TMP/xdg2/wordl/stats" 2>/dev/null)"
+  tmux -L "$SOCK" kill-server 2>/dev/null
 
   # Starting the installed copy when a newer release exists: it updates, then the game
   # starts. Switched off, it starts without updating.

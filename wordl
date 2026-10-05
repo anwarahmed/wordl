@@ -7,7 +7,7 @@
 # are painted with half-block characters, so a letter is a small bitmap that
 # can be scaled, not a single terminal cell.
 
-VERSION="0.1.1"
+VERSION="0.1.2"
 
 # Empty in a copy that may update itself. A package that owns its copy rewrites this
 # line when it installs (the Homebrew formula and the AUR package both do), naming
@@ -450,6 +450,8 @@ draw_tile() { # row col [inset]
     return
   fi
   if ((r < n)); then ch=${GUESSES[r]:c:1}; elif ((r == n)); then ch=${CUR:c:1}; else ch=''; fi
+  # After giving up, the answer is shown in the row the next guess would have used.
+  ((GAVE_UP && r == n)) && ch=${ANSWER:c:1}
   if ((BT == 1)); then
     block "$x" "$y" "$BW" 1 fill empty fg "$ch"
   elif [[ -n $ch ]]; then
@@ -525,7 +527,7 @@ clear_toast() {
 
 draw_footer() {
   local items=("?|Help|help" "^N|New|new" "^D|Daily|daily" "^S|Stats|stats"
-    "^T|Theme|theme" "^X|${DIFFS[HARD]%% *}|hard" "^Q|Quit|quit")
+    "^T|Theme|theme" "^X|${DIFFS[HARD]%% *}|hard" "^G|Give up|giveup" "^Q|Quit|quit")
   local it key label act sep total labels=1 x w style
   for sep in 3 2 1 0; do
     total=0
@@ -536,7 +538,7 @@ draw_footer() {
     total=$((total - sep))
     ((sep > 0 && total <= COLS - 2)) && break
   done
-  if ((sep == 0)); then labels=0 sep=2 total=$((7 * 2 - 1 + 6 * 2)); fi
+  if ((sep == 0)); then labels=0 sep=2 total=$((${#items[@]} * 4 - 3)); fi
   put_center "$FY" 1 "$COLS" 0 ''
   x=$(((COLS - total) / 2 + 1))
   for it in "${items[@]}"; do
@@ -601,7 +603,7 @@ build_help() {
   done
   ml c 0 ''
   for c in "A-Z|type|Enter|submit" "Bksp|delete|?|this help" "^N|new game|^D|daily puzzle" \
-    "^S|statistics|^T|change theme" "^X|difficulty|^Q|quit"; do
+    "^S|statistics|^T|change theme" "^X|difficulty|^G|give up" "^Q|quit||"; do
     IFS='|' read -r k1 d1 k2 d2 <<<"$c"
     printf -v pad '%*s' $((17 - ${#k1} - ${#d1})) ''
     ml l $((18 + ${#k2} + 1 + ${#d2})) "${CSI}${k}m${k1}${p} ${d1}${pad}${CSI}${k}m${k2}${p} ${d2}"
@@ -615,6 +617,14 @@ build_help() {
   MBTN=("Esc Close|close")
 }
 
+build_giveup() {
+  mlt c "1;${F[accent]}" "GIVE UP?"
+  ml c 0 ''
+  mlt c "${F[fg]}" "The word will be shown and the"
+  mlt c "${F[fg]}" "game counts as a loss."
+  MBTN=("Enter Give up|surrender" "Esc Keep playing|close")
+}
+
 build_stats() {
   local p="${CSI}0;${F[fg]};${B[panel]}m" m=$MODE i n max=1 len bar color
   local played=${ST[${m}_played]:-0} wins=${ST[${m}_wins]:-0} pct=0
@@ -625,6 +635,7 @@ build_stats() {
     mlt c "1;${F[g]}" "Solved in ${#GUESSES[@]}/6"
     ml c 0 ''
   elif [[ $STATE == lost ]]; then
+    ((GAVE_UP)) && mlt c "${F[dim]}" "You gave up"
     ml c $((13 + 5)) "${CSI}${F[fg]}mThe word was ${CSI}1;${F[y]}m${ANSWER}${p}"
     ml c 0 ''
   fi
@@ -659,6 +670,7 @@ draw_modal() {
   case $MODAL in
     help) build_help ;;
     stats) build_stats ;;
+    giveup) build_giveup ;;
   esac
   local p="${CSI}0;${F[fg]};${B[panel]}m" bd="${CSI}0;${F[panelb]};${B[panel]}m"
   local inner=35 n=${#ML_S[@]} i w h x0 y0 l r lp rp bt bw=0 label x
@@ -708,7 +720,7 @@ draw_modal() {
 
 declare -A ST KEYSTATE
 declare -a GUESSES MARKS ANSWERS
-CUR='' ANSWER='' STATE=playing MODE=daily DAY=0 HARD=0 GAME_HARD=0 PENDING=''
+CUR='' ANSWER='' STATE=playing MODE=daily DAY=0 HARD=0 GAME_HARD=0 GAVE_UP=0 PENDING=''
 
 load_words() {
   local d
@@ -757,8 +769,8 @@ save_game() { # only the daily puzzle is resumed, so only it is saved
   local IFS=,
   [[ $MODE == daily ]] || return
   mkdir -p "$STATE_DIR" 2>/dev/null || return
-  printf 'day=%s\nanswer=%s\nhard=%s\nguesses=%s\n' \
-    "$DAY" "$ANSWER" "$GAME_HARD" "${GUESSES[*]}" >"$STATE_DIR/$MODE"
+  printf 'day=%s\nanswer=%s\nhard=%s\ngaveup=%s\nguesses=%s\n' \
+    "$DAY" "$ANSWER" "$GAME_HARD" "$GAVE_UP" "${GUESSES[*]}" >"$STATE_DIR/$MODE"
 }
 
 evaluate() { # guess answer -> REPLY, one of g/y/x per letter
@@ -814,7 +826,7 @@ new_game() { # daily|practice
   local -A saved=()
   local g n=${#ANSWERS[@]}
   MODE=$1
-  GUESSES=() MARKS=() KEYSTATE=() CUR='' STATE=playing PENDING='' GAME_HARD=$HARD
+  GUESSES=() MARKS=() KEYSTATE=() CUR='' STATE=playing PENDING='' GAME_HARD=$HARD GAVE_UP=0
   today; DAY=$REPLY
   if [[ $MODE == daily ]]; then
     ANSWER=${ANSWERS[(DAY * 7919 + 104729) % n]^^}
@@ -831,6 +843,8 @@ new_game() { # daily|practice
     for g in ${saved[guesses]//,/ }; do
       [[ $g =~ ^[A-Z]{5}$ && $STATE == playing ]] && add_guess "$g"
     done
+    # A daily puzzle that was given up stays given up.
+    [[ ${saved[gaveup]:-} == 1 && $STATE == playing ]] && GAVE_UP=1 STATE=lost
   fi
   end_message
 }
@@ -1059,6 +1073,20 @@ do_cmd() {
       if copy_result; then toast "Result copied" plain 0; else toast "No clipboard tool found" error 0; fi
       MSG_UNTIL=$((SECONDS + 3)) RESTORE_END=1
       ;;
+    giveup) # asks first: one stray key must not end a game
+      [[ $STATE == playing && $LAYOUT != small ]] || return
+      MODAL=giveup PENDING=''
+      render
+      ;;
+    surrender) # give up, confirmed: a loss, with the answer shown
+      [[ $STATE == playing ]] || return
+      MODAL='' CUR='' GAVE_UP=1 STATE=lost
+      save_game
+      record_result
+      end_message
+      render
+      PENDING=stats
+      ;;
     quit) exit 0 ;;
   esac
 }
@@ -1097,6 +1125,7 @@ handle_key() {
     case $MODAL:$k in
       stats:enter | stats:[nN]) if [[ $STATE == playing ]]; then do_cmd close; else do_cmd new; fi ;;
       stats:[cC]) if [[ $STATE == playing ]]; then do_cmd close; else do_cmd copy; fi ;;
+      giveup:enter | giveup:[yY]) do_cmd surrender ;;
       *) do_cmd close ;;
     esac
     return
@@ -1110,6 +1139,7 @@ handle_key() {
     $'\x04') do_cmd daily ;;
     $'\x13') do_cmd stats ;;
     $'\x18') do_cmd hard ;;
+    $'\x07') do_cmd giveup ;;
   esac
 }
 
@@ -1338,7 +1368,7 @@ Usage: wordl [options]
 
 In the game: type letters, Enter to submit, Backspace to delete.
   ?  help        ^N new word             ^D daily puzzle    ^S statistics
-  ^T theme       ^X difficulty           ^Q quit
+  ^T theme       ^X difficulty           ^G give up         ^Q quit
 The on-screen keyboard and the buttons can be clicked with the mouse.
 
 Statistics are kept in ${XDG_STATE_HOME:-~/.local/state}/wordl.

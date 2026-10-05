@@ -124,6 +124,13 @@ One file, in sections marked by `# ---- name ----` rulers, top to bottom:
   gray means "no more copies than this guess showed as green or yellow". A game under
   way can be made easier but not harder, since earlier guesses weren't held to the
   stricter rule.
+- **Giving up** (`Ctrl-G`, asked for by the user: on Hard and Ultra Hard a game can
+  get stuck, and there was no way out but quitting). It asks first, because one stray
+  key would otherwise end a game. It then counts as a loss (played, streak reset; a
+  free way out would make the statistics meaningless), shows the answer in the next
+  empty row and in the message, and leads to the statistics dialog, where Enter starts
+  the next word. `GAVE_UP` is separate from `STATE=lost` only so the screen can say so
+  and so a given-up daily puzzle, saved as `gaveup=1`, is not resumed.
 - **Own word lists, from SCOWL.** Not the original game's lists: SCOWL is permissively
   licensed and its notice ships in `words/SCOWL-COPYRIGHT`. `answers.txt` is filtered
   by rule (plurals, inflections) plus a block list in `tools/build-words.py`, so an odd
