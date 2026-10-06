@@ -4,7 +4,6 @@ abbey
 abbot
 abhor
 abide
-abler
 abode
 abort
 about
@@ -84,7 +83,6 @@ apart
 apple
 apply
 apron
-apter
 aptly
 arbor
 ardor
@@ -129,10 +127,8 @@ balmy
 banal
 bandy
 banjo
-barer
 barge
 baron
-baser
 basic
 basil
 basin
@@ -193,7 +189,6 @@ blond
 blood
 bloom
 blown
-bluer
 bluff
 blunt
 blurb
@@ -205,7 +200,6 @@ bogus
 bonus
 boost
 booth
-booty
 booze
 borne
 bosom
@@ -213,7 +207,6 @@ bossy
 botch
 bough
 bound
-bowel
 boxer
 brace
 braid
@@ -267,14 +260,12 @@ burro
 burst
 bushy
 butte
-buxom
 buyer
 byway
 cabin
 cable
 cacao
 cache
-cacti
 cadet
 cagey
 calve
@@ -329,7 +320,6 @@ chill
 chime
 chimp
 china
-chink
 chirp
 choir
 choke
@@ -362,7 +352,6 @@ clerk
 click
 cliff
 climb
-clime
 cling
 clink
 cloak
@@ -399,7 +388,6 @@ court
 cover
 covet
 cower
-coyer
 crack
 craft
 cramp
@@ -420,7 +408,6 @@ creep
 crepe
 crept
 crest
-cried
 crime
 crisp
 croak
@@ -443,7 +430,6 @@ curly
 curry
 curse
 curve
-cuter
 cycle
 cynic
 daddy
@@ -479,11 +465,9 @@ deter
 devil
 diary
 digit
-dimer
 dimly
 diner
 dingy
-direr
 dirge
 dirty
 disco
@@ -516,7 +500,6 @@ dread
 dream
 dregs
 dress
-dried
 drift
 drill
 drink
@@ -535,7 +518,6 @@ dully
 dummy
 dumpy
 dunce
-dunno
 dusky
 dusty
 duvet
@@ -550,7 +532,6 @@ easel
 eaten
 eater
 ebony
-edger
 edict
 eerie
 eight
@@ -562,7 +543,6 @@ elegy
 elite
 elope
 elude
-elves
 email
 embed
 ember
@@ -612,7 +592,6 @@ false
 fancy
 farce
 fatal
-fatty
 fault
 fauna
 favor
@@ -623,13 +602,10 @@ felon
 fence
 ferry
 fetch
-feted
 fetid
-fetus
 fever
 fewer
 fiber
-fiche
 field
 fiend
 fiery
@@ -646,7 +622,6 @@ finch
 finer
 first
 fishy
-fiver
 fizzy
 flail
 flair
@@ -661,7 +636,6 @@ fleck
 fleet
 flesh
 flick
-flied
 flint
 flirt
 float
@@ -703,10 +677,8 @@ franc
 frank
 fraud
 freak
-freer
 fresh
 friar
-fried
 frill
 frisk
 frock
@@ -719,7 +691,6 @@ froze
 fruit
 fudge
 fully
-fungi
 funny
 furor
 furry
@@ -736,10 +707,7 @@ gaunt
 gauze
 gavel
 gawky
-gayer
-geese
 genie
-genii
 genre
 genus
 ghost
@@ -826,14 +794,10 @@ guppy
 gusty
 habit
 hairy
-haler
-halon
 halve
 handy
 happy
 hardy
-harem
-harry
 harsh
 haste
 hasty
@@ -874,7 +838,6 @@ house
 hovel
 hover
 huffy
-huger
 human
 humid
 humor
@@ -885,7 +848,6 @@ hutch
 hyena
 ideal
 idiom
-idiot
 idler
 igloo
 image
@@ -897,12 +859,10 @@ index
 inept
 inert
 infer
-infix
 inlay
 inlet
 inner
 input
-inter
 irate
 irony
 issue
@@ -944,7 +904,6 @@ labor
 laden
 ladle
 lager
-lamer
 lance
 lanky
 lapel
@@ -957,7 +916,6 @@ later
 latex
 lathe
 laugh
-laxer
 layer
 leach
 leafy
@@ -973,15 +931,12 @@ leech
 leery
 legal
 lemon
-leper
-letup
 levee
 level
 lever
 libel
 light
 liken
-liker
 lilac
 limbo
 limit
@@ -1000,7 +955,6 @@ local
 lodge
 lofty
 logic
-loony
 loose
 lorry
 loser
@@ -1029,7 +983,6 @@ magic
 maize
 major
 maker
-mamma
 mange
 mango
 mangy
@@ -1039,7 +992,6 @@ manly
 manor
 maple
 march
-maria
 marry
 marsh
 mason
@@ -1084,7 +1036,6 @@ month
 moody
 moose
 moral
-moron
 mossy
 motel
 motif
@@ -1099,11 +1050,9 @@ mouth
 mover
 movie
 mower
-mucus
 muddy
 muggy
 mulch
-multi
 mummy
 mumps
 munch
@@ -1112,10 +1061,8 @@ murky
 mushy
 music
 musty
-muter
 naive
 naked
-nappy
 nasal
 nasty
 natty
@@ -1127,7 +1074,6 @@ nerve
 never
 newer
 newly
-newsy
 nicer
 niche
 niece
@@ -1141,23 +1087,18 @@ nobly
 noise
 noisy
 nomad
-noose
 north
 notch
 novel
-nuder
 nudge
 nurse
 nutty
 nylon
 nymph
-oases
 oasis
 obese
 occur
 ocean
-octal
-odder
 oddly
 offer
 often
@@ -1184,7 +1125,6 @@ overt
 owner
 oxide
 ozone
-paddy
 pagan
 pager
 paint
@@ -1214,8 +1154,6 @@ pecan
 pedal
 peeve
 penal
-pence
-pends
 penny
 peony
 perch
@@ -1223,7 +1161,6 @@ peril
 perky
 pesky
 petal
-peter
 petty
 phase
 phone
@@ -1252,7 +1189,6 @@ plate
 plaza
 plead
 pleat
-plied
 pluck
 plumb
 plume
@@ -1278,7 +1214,6 @@ preen
 press
 price
 pride
-pried
 prime
 primp
 print
@@ -1298,7 +1233,6 @@ proxy
 prude
 prune
 psalm
-psych
 pudgy
 puffy
 pulse
@@ -1335,7 +1269,6 @@ rabbi
 rabid
 racer
 radar
-radii
 radio
 rainy
 raise
@@ -1348,7 +1281,6 @@ ratio
 ratty
 ravel
 raven
-rawer
 rayon
 razor
 reach
@@ -1359,7 +1291,6 @@ rebel
 rebut
 recap
 recur
-redid
 refer
 regal
 reign
@@ -1382,7 +1313,6 @@ rhino
 rhyme
 rider
 ridge
-rifer
 rifle
 right
 rigid
@@ -1403,7 +1333,6 @@ robot
 rocky
 rodeo
 rogue
-roman
 roomy
 roost
 rotor
@@ -1426,10 +1355,8 @@ rusty
 saber
 sadly
 safer
-sager
 saint
 salad
-sally
 salon
 salty
 salve
@@ -1499,11 +1426,9 @@ sheer
 sheet
 shelf
 shell
-shied
 shift
 shine
 shiny
-shire
 shirk
 shirt
 shoal
@@ -1523,7 +1448,6 @@ shrub
 shrug
 shuck
 shunt
-shyer
 sidle
 siege
 sieve
@@ -1537,7 +1461,6 @@ sinus
 siren
 sixth
 sixty
-sizer
 skate
 skein
 skill
@@ -1553,7 +1476,6 @@ slang
 slant
 slash
 slate
-slave
 sleek
 sleep
 sleet
@@ -1587,7 +1509,6 @@ smith
 smock
 smoke
 smoky
-smote
 snack
 snail
 snake
@@ -1612,7 +1533,6 @@ solid
 solve
 sonic
 sooty
-sorer
 sorry
 sound
 south
@@ -1632,7 +1552,6 @@ spend
 spent
 spice
 spicy
-spied
 spike
 spill
 spine
@@ -1652,7 +1571,6 @@ spout
 spray
 spree
 sprig
-spunk
 spurn
 spurt
 squad
@@ -1725,7 +1643,6 @@ sugar
 suite
 sulky
 sunny
-sunup
 super
 surer
 surge
@@ -1769,12 +1686,10 @@ tardy
 tarry
 taste
 tasty
-tatty
 taunt
 tawny
 teach
 tease
-teeth
 tempo
 tempt
 tenet
@@ -1852,7 +1767,6 @@ trend
 trial
 tribe
 trick
-tried
 trill
 tripe
 trite
@@ -1886,24 +1800,18 @@ ultra
 uncle
 uncut
 under
-undid
 undue
 unfit
 unify
 union
 unite
 unity
-unman
-unsay
-unset
 untie
 until
 upend
-upped
 upper
 upset
 urban
-urine
 usage
 usher
 usual
@@ -1926,7 +1834,6 @@ vicar
 video
 vigil
 vigor
-viler
 villa
 vinyl
 viola
@@ -1942,7 +1849,6 @@ vocal
 vodka
 vogue
 voice
-vomit
 voter
 vouch
 vowel
@@ -1961,7 +1867,6 @@ weary
 weave
 wedge
 weedy
-weest
 weigh
 weird
 whack
@@ -1995,7 +1900,6 @@ witch
 witty
 woken
 woman
-women
 woody
 wordy
 world
@@ -2016,7 +1920,6 @@ write
 wrong
 wrote
 wrung
-wryer
 yacht
 yearn
 yeast

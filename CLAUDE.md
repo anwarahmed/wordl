@@ -145,8 +145,17 @@ Single binary crate, no async. One file per concern in `src/`:
 - **Own word lists, from SCOWL.** Not the original game's lists: SCOWL is permissively
   licensed and asks for its notice to travel with copies, so `wordl --licenses` prints
   it and the AUR package installs it. `answers.txt` is filtered by rule (plurals,
-  inflections) plus a block list in `tools/build-words.py`, so an odd word can still
-  slip through; add it to the block list and rebuild. Both lists must stay sorted:
+  inflections) plus a block list in `tools/build-words.py`. The whole list was read
+  through for 0.2.2 at the user's request ("block odd, plural, obscene etc. words")
+  and 97 words went onto the block list, which is grouped by reason: sexual or vulgar,
+  slurs and insults aimed at a group or a disability, bodily, plurals the rules miss
+  (`teeth`, `cacti`), verb forms (`cried`, `pends`), awkward comparatives (`abler`,
+  `wryer`), words that read as names (`harry`), informal ones (`dunno`), and obscure or
+  technical ones (`halon`, `infix`). Kept on purpose: everyday comparatives (`older`,
+  `safer`), common irregular past tenses (`began`, `wrote`), mild insults (`dunce`),
+  ordinary anatomy (`groin`), and hard but real words (`skein`). To block another word,
+  add it to the fitting group and rebuild; blocked words stay valid guesses. Removing
+  words changes which word each day's puzzle is. Both lists must stay sorted:
   guesses are looked up by binary search, and a test checks the order.
 - **The state files are the bash version's.** `$XDG_STATE_HOME/wordl/stats` and `daily`
   kept their `key=value` format so nobody's statistics were lost in the rewrite. XDG
@@ -275,5 +284,6 @@ is made the way `make_release` in `tests/e2e.sh` makes one.
 - At the smallest sizes (level 1) tiles in a column touch; there is no room for gaps.
 - Dialogs taller than the terminal lose their last lines.
 - No hover effects, no key-press flash on the on-screen keyboard.
-- `answers.txt` is machine-filtered and has not been read through by a person.
+- `answers.txt` was read through once, by Claude (see "Own word lists"), not by a
+  person. Judgement calls remain; the user reports words that feel wrong.
 - Not done: other word lengths, other languages, sharing as an image.

@@ -203,8 +203,9 @@ The words come from [SCOWL](http://wordlist.aspell.net/) by Kevin Atkinson, not 
 any other game. The lists are built into the program:
 
 - `words/allowed.txt` - about 11,400 five-letter words accepted as guesses.
-- `words/answers.txt` - about 2,000 common ones a puzzle can be, with plurals and
-  simple inflections filtered out.
+- `words/answers.txt` - about 1,900 common ones a puzzle can be. Plurals, verb forms,
+  awkward comparatives, obscure words, names and anything crude or hurtful are left
+  out; they are still accepted as guesses.
 
 `tools/build-words.py` regenerates both from a SCOWL download.
 

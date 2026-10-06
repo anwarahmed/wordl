@@ -16,12 +16,51 @@ import os
 import re
 import sys
 
+# Words kept out of answers.txt. They stay valid guesses; they are just never the
+# puzzle. The rules in inflected() catch most plurals and inflections; these are what
+# reading the list by hand turned up, by kind.
 BLOCKED = set("""
-bitch boobs booby busty dildo dykes enema fagot fecal feces horny hussy kinky
-kraut lynch nazis negro penis porno prick pubes pubic pussy queer rapes raped
-semen sissy sluts spank sperm spick spics turds uteri vulva wench whore
-gimme gonna gotta kinda lemme sorta wanna
-""".split())
+bitch boobs booby booty busty buxom dildo dykes enema fagot fecal feces harem horny
+hussy kinky lynch nazis penis porno prick pubes pubic pussy rapes raped semen sluts
+spank sperm spunk turds uteri vulva wench whore
+""".split())  # sexual, vulgar
+
+BLOCKED |= set("""
+chink kraut negro nappy paddy queer sissy spick spics
+fatty idiot leper loony moron
+noose slave
+""".split())  # slurs, insults aimed at a group or a disability, and what goes with them
+
+BLOCKED |= set("""
+bowel fetus mucus urine vomit
+""".split())  # bodily and unpleasant as a surprise answer
+
+BLOCKED |= set("""
+cacti elves fungi geese genii oases pence radii teeth women
+""".split())  # plurals the rules cannot see
+
+BLOCKED |= set("""
+cried dried fried plied pried shied spied tried
+feted flied pends redid smote undid upped
+""".split())  # verb forms: regular -ied, and odd or archaic ones
+
+BLOCKED |= set("""
+abler apter barer baser bluer coyer cuter direr freer gayer haler huger lamer laxer
+muter nuder odder rawer rifer sager shyer sorer viler weest wryer
+""".split())  # awkward comparatives; everyday ones (older, safer, wider) stay
+
+BLOCKED |= set("""
+harry maria peter roman sally
+""".split())  # read as names
+
+BLOCKED |= set("""
+dunno fiver gimme gonna gotta kinda lemme mamma multi psych sorta wanna
+""".split())  # informal, or not a word on its own
+
+BLOCKED |= set("""
+clime dimer edger fiche halon infix inter letup liker newsy octal shire sizer sunup
+tatty unman unsay unset
+""".split())  # obscure, technical or regional: nobody's fifth guess
 
 
 def load(root, max_size, cats=None, length=None):
