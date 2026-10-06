@@ -203,11 +203,11 @@ The words come from [SCOWL](http://wordlist.aspell.net/) by Kevin Atkinson, not 
 any other game. The lists are built into the program:
 
 - `words/allowed.txt` - about 11,400 five-letter words accepted as guesses.
-- `words/answers.txt` - about 1,600 common ones a puzzle can be. The game is meant to
-  be safe for children, so the answers are plain base words: no plurals, past tenses
-  or comparatives, no names, slang or British-only words, nothing obscure, and nothing
-  crude, hurtful, violent or about drink, drugs or gambling. All of those are still
-  accepted as guesses.
+- `words/answers.txt` - about 1,800 a puzzle can be. The game is meant to be safe for
+  children and a way to pick up new words, so the answers are base words, some of them
+  hard (`skein`, `tacit`, `abhor`): no plurals, past tenses or comparatives, no names,
+  slang, jargon or British-only words, and nothing crude, hurtful, violent or about
+  drink, drugs or gambling. All of those are still accepted as guesses.
 
 `tools/build-words.py` regenerates both from a SCOWL download.
 

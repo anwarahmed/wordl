@@ -58,9 +58,8 @@ dunno fiver gimme gonna gotta kinda lemme mamma multi psych sorta wanna
 """.split())  # informal, or not a word on its own
 
 BLOCKED |= set("""
-clime dimer edger fiche halon infix inter letup liker newsy octal shire sizer sunup
-tatty unman unsay unset
-""".split())  # obscure, technical or regional: nobody's fifth guess
+dimer edger fiche halon infix liker newsy octal shire sizer tatty unman unsay unset
+""".split())  # jargon, regional, or barely words: nothing worth learning from them
 
 # Asked for by the user after the first read-through: these had been kept as
 # "ordinary enough" and were to go as well.
@@ -89,24 +88,13 @@ BLOCKED |= set("""
 duvet lorry tonne
 """.split())  # British spellings and words (the list is American: color, humor)
 
+# Hard vocabulary is welcome, and wanted: the oldest players are well-read
+# thirteen-year-olds, the younger ones play with their help, and the user sees the game
+# as a way for them to learn new words. A first pass blocked 220 "hard" words; nearly
+# all came back. These few stayed out for being unpleasant, not for being difficult.
 BLOCKED |= set("""
-abate abhor acrid adage affix allay aloof amass amiss angst annul askew aural avail
-avert axiom banal bandy baste bayou befit belie berth beset biped bleat botch brawn
-brine briny broil brunt burro butte byway cacao cache cagey calve canny caper caulk
-chafe chaff chasm cheep chide cinch clack cleat clout colic covet cower crass croon
-curio dally datum daunt decry deify deign delve dirge ditty doily douse dowdy dowry
-droll dross edict elegy ensue envoy epoch ethos exalt extol exude exult feign feint
-fetid filch filly flout foist foray forgo forte fount friar frock frond furor gamut
-gawky girth glean gnarl gnash goner graft gruel guile guise gulch heath hovel impel
-inane inept inert irate jaunt knoll lapse lathe leach leery levee liken lithe liven
-livid loath lucid mange mangy maxim mealy mirth mulch natty niche olden parch peeve
-piety pious pique pithy pleat poise polyp preen primp privy prong qualm quark quash
-quell ravel rebut regal remit retch revel revue rouse salve scald scant scoff sheaf
-shirk shoal shuck shunt sidle sinew singe skein skimp skulk slake smite snare snide
-spate spire sprig spurn staid stave stint stoke strew suave surly swill swoon tacit
-taint tarry tenet tepee tepid terse tinge trawl trill tripe trite usurp verve vigil
-vouch waive waken wield wince winch wreak wrest yearn yodel
-""".split())  # hard words: real, but few people's vocabulary
+colic goner mange polyp privy retch swill tripe
+""".split())  # unpleasant
 
 # The game is played by children (the user said so). Beyond everything above, these
 # are no answer for a child to be handed: harm and crime, adult themes, tobacco,

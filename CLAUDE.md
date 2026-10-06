@@ -146,10 +146,12 @@ Single binary crate, no async. One file per concern in `src/`:
   licensed and asks for its notice to travel with copies, so `wordl --licenses` prints
   it and the AUR package installs it. `answers.txt` is filtered by rule (plurals,
   inflections) plus a block list in `tools/build-words.py`, about 500 words grouped by
-  reason. **The game is played by children** (the user said so), and the user had the
-  whole list read through, twice: first asking to "block odd, plural, obscene etc.
-  words" (0.2.2), then to remove every category that pass had kept as ordinary enough
-  (0.2.3). So the answers are meant to be plain base words a child can be handed:
+  reason. **The game is played by children** (the user said so): up to 13 years old,
+  the older ones very well read, the younger ones usually playing with the older ones
+  helping. The user also sees it as **an opportunity for them to learn new words**. The
+  whole list was read through at the user's request and adjusted over 0.2.2 to 0.2.4.
+  So the answers are base words that are safe to hand a child, and hard ones are
+  welcome:
   - no inflections at all: plurals, past tenses and participles even when irregular
     (`began`, `wrote`), comparatives even when everyday (`older`, `safer`);
   - nothing sexual, vulgar or bodily, no slurs, no insults even mild (`dunce`), no
@@ -157,10 +159,15 @@ Single binary crate, no async. One file per concern in `src/`:
   - no harm or crime as a theme (`abuse`, `arson`, `rifle`), no drink, tobacco, drugs
     or gambling (`vodka`, `cigar`, `poker`), nothing romantic or suggestive (`lover`,
     `naked`);
-  - no names, slang, British-only words, or hard vocabulary (`skein`, `abhor`).
+  - no names, slang, British-only words or jargon (`halon`, `infix`);
+  - **difficult vocabulary stays in** (`skein`, `tacit`, `abhor`, `wrest`). 0.2.3
+    blocked 220 such words on a misreading of "hard"; 0.2.4 brought nearly all back
+    once the user described the players. A word is not blocked for being hard, only
+    for being unsuitable or not worth learning.
   Spooky and everyday-serious words stayed (`ghost`, `skull`, `death`, `sword`,
-  `thief`). When unsure about a word, block it: add it to the fitting group and
-  rebuild. Blocked words stay valid guesses. Removing words changes which word each
+  `thief`). When unsure whether a word is *suitable*, block it; when unsure whether it
+  is *too hard*, keep it. To block one, add it to the fitting group in the script and
+  rebuild. Blocked words stay valid guesses. Changing the list changes which word each
   day's puzzle is. Both lists must stay sorted:
   guesses are looked up by binary search, and a test checks the order.
 - **The state files are the bash version's.** `$XDG_STATE_HOME/wordl/stats` and `daily`
@@ -290,7 +297,9 @@ is made the way `make_release` in `tests/e2e.sh` makes one.
 - At the smallest sizes (level 1) tiles in a column touch; there is no room for gaps.
 - Dialogs taller than the terminal lose their last lines.
 - No hover effects, no key-press flash on the on-screen keyboard.
-- `answers.txt` was read through twice by Claude (see "Own word lists"), not by a
-  person, and not against a reading level for a particular age: what counts as "hard"
-  is a judgement. The user reports words that feel wrong.
+- `answers.txt` was read through by Claude (see "Own word lists"), not by a person.
+  The user reports words that feel wrong.
+- The game shows no meaning for a word. Since the user wants children to learn words
+  from it, showing a short definition when a game ends is the obvious next feature; it
+  needs a definitions source whose license allows bundling.
 - Not done: other word lengths, other languages, sharing as an image.
