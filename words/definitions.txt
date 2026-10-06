@@ -348,7 +348,7 @@ cluck	the sound a hen makes
 clump	a close group of trees or plants
 coach	a person who trains a team; a bus
 coast	the land beside the sea
-cobra	a poisonous snake that spreads a hood
+cobra	a snake with a poisonous bite that spreads a hood
 cocoa	a brown powder made from cacao; a hot drink
 colon	the mark ":"; part of the large intestine
 color	red, blue, green and so on
@@ -886,7 +886,7 @@ liner	a large passenger ship; something that lines
 lingo	the special words used by one group of people
 liter	a measure of liquid, a bit more than a quart
 lithe	bending and moving easily
-liven	to make more lively
+liven	to make more cheerful and full of life
 liver	an organ of the body that cleans the blood
 livid	very angry
 llama	a woolly South American animal
@@ -921,7 +921,7 @@ mango	a sweet tropical fruit with a large stone
 mangy	having patchy, worn fur
 mania	a wild excitement or craze for something
 manic	wildly excited and busy
-manly	brave and strong
+manly	strong and brave, in the way a man was expected to be
 manor	a large country house with land
 maple	a tree whose sap is made into syrup
 march	to walk in step like soldiers
@@ -1710,7 +1710,7 @@ vigor	strength and energy
 villa	a large house, often in the country or by the sea
 vinyl	a tough plastic
 viola	an instrument a little larger than a violin
-viper	a poisonous snake
+viper	a snake with a poisonous bite
 viral	caused by a virus; spreading fast on the internet
 virus	a tiny germ that causes illness
 visit	to go to see a person or place
