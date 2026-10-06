@@ -145,17 +145,23 @@ Single binary crate, no async. One file per concern in `src/`:
 - **Own word lists, from SCOWL.** Not the original game's lists: SCOWL is permissively
   licensed and asks for its notice to travel with copies, so `wordl --licenses` prints
   it and the AUR package installs it. `answers.txt` is filtered by rule (plurals,
-  inflections) plus a block list in `tools/build-words.py`. The whole list was read
-  through for 0.2.2 at the user's request ("block odd, plural, obscene etc. words")
-  and 97 words went onto the block list, which is grouped by reason: sexual or vulgar,
-  slurs and insults aimed at a group or a disability, bodily, plurals the rules miss
-  (`teeth`, `cacti`), verb forms (`cried`, `pends`), awkward comparatives (`abler`,
-  `wryer`), words that read as names (`harry`), informal ones (`dunno`), and obscure or
-  technical ones (`halon`, `infix`). Kept on purpose: everyday comparatives (`older`,
-  `safer`), common irregular past tenses (`began`, `wrote`), mild insults (`dunce`),
-  ordinary anatomy (`groin`), and hard but real words (`skein`). To block another word,
-  add it to the fitting group and rebuild; blocked words stay valid guesses. Removing
-  words changes which word each day's puzzle is. Both lists must stay sorted:
+  inflections) plus a block list in `tools/build-words.py`, about 500 words grouped by
+  reason. **The game is played by children** (the user said so), and the user had the
+  whole list read through, twice: first asking to "block odd, plural, obscene etc.
+  words" (0.2.2), then to remove every category that pass had kept as ordinary enough
+  (0.2.3). So the answers are meant to be plain base words a child can be handed:
+  - no inflections at all: plurals, past tenses and participles even when irregular
+    (`began`, `wrote`), comparatives even when everyday (`older`, `safer`);
+  - nothing sexual, vulgar or bodily, no slurs, no insults even mild (`dunce`), no
+    remarks about bodies (`obese`, `pudgy`), no labels for kinds of people (`pagan`);
+  - no harm or crime as a theme (`abuse`, `arson`, `rifle`), no drink, tobacco, drugs
+    or gambling (`vodka`, `cigar`, `poker`), nothing romantic or suggestive (`lover`,
+    `naked`);
+  - no names, slang, British-only words, or hard vocabulary (`skein`, `abhor`).
+  Spooky and everyday-serious words stayed (`ghost`, `skull`, `death`, `sword`,
+  `thief`). When unsure about a word, block it: add it to the fitting group and
+  rebuild. Blocked words stay valid guesses. Removing words changes which word each
+  day's puzzle is. Both lists must stay sorted:
   guesses are looked up by binary search, and a test checks the order.
 - **The state files are the bash version's.** `$XDG_STATE_HOME/wordl/stats` and `daily`
   kept their `key=value` format so nobody's statistics were lost in the rewrite. XDG
@@ -284,6 +290,7 @@ is made the way `make_release` in `tests/e2e.sh` makes one.
 - At the smallest sizes (level 1) tiles in a column touch; there is no room for gaps.
 - Dialogs taller than the terminal lose their last lines.
 - No hover effects, no key-press flash on the on-screen keyboard.
-- `answers.txt` was read through once, by Claude (see "Own word lists"), not by a
-  person. Judgement calls remain; the user reports words that feel wrong.
+- `answers.txt` was read through twice by Claude (see "Own word lists"), not by a
+  person, and not against a reading level for a particular age: what counts as "hard"
+  is a judgement. The user reports words that feel wrong.
 - Not done: other word lengths, other languages, sharing as an image.
