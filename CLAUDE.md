@@ -58,7 +58,7 @@ Single binary crate, no async. One file per concern in `src/`:
 | `font.rs`   | Two bitmap fonts and `glyph`, which turns a letter into rows of half blocks |
 | `theme.rs`  | Color themes as roles; 256-color fallback |
 | `store.rs`  | `Stats` (statistics and settings) and the saved daily puzzle, as `key=value` files |
-| `words.rs`  | The two word lists, embedded with `include_str!` |
+| `words.rs`  | The two word lists and the definitions, embedded with `include_str!` |
 | `update.rs` | Startup self-update and `wordl update` |
 
 ### Patterns to keep
@@ -170,6 +170,25 @@ Single binary crate, no async. One file per concern in `src/`:
   rebuild. Blocked words stay valid guesses. Changing the list changes which word each
   day's puzzle is. Both lists must stay sorted:
   guesses are looked up by binary search, and a test checks the order.
+- **Every puzzle word has a definition, written for this game** (asked for by the
+  user, so that the children learn the words they meet; since 0.2.5).
+  `words/definitions.txt` is `word<TAB>meaning`, one line per answer in the same order
+  as `answers.txt`; a test fails if the two differ, and `tools/build-words.py` lists
+  what is missing after a rebuild. When a game ends the statistics dialog shows the
+  word with its meaning (`ui::dialog`, wrapped by `ui::wrap`).
+  - *Why not a dictionary:* WordNet was tried. Its license allows bundling and it
+    covers all but 16 of the words, but its first sense is often the wrong one for a
+    child ("crane": "stretch the neck"; "swear": "utter obscenities"), adult senses
+    are mixed in ("screw"), and the wording is a dictionary's. Simple English
+    Wiktionary is share-alike. Every entry would have needed rewriting by hand
+    anyway, so they were written from scratch, with no license to carry.
+  - *How to write one:* at most 70 characters (it must fit the 35-column dialog in
+    three lines with the word in front; a test checks), lowercase, no full stop.
+    Plain words a young child knows. The sense worth learning, and a second one after
+    a semicolon only when both are common ("a tall bird with long legs; a machine
+    that lifts"). Verbs start with "to". Never the unsuitable sense: "swear" is "to
+    make a solemn promise". Don't define a word with itself.
+  - Adding or unblocking an answer means writing its definition in the same change.
 - **The state files are the bash version's.** `$XDG_STATE_HOME/wordl/stats` and `daily`
   kept their `key=value` format so nobody's statistics were lost in the rewrite. XDG
   paths on macOS too, not `~/Library`.
@@ -299,7 +318,9 @@ is made the way `make_release` in `tests/e2e.sh` makes one.
 - No hover effects, no key-press flash on the on-screen keyboard.
 - `answers.txt` was read through by Claude (see "Own word lists"), not by a person.
   The user reports words that feel wrong.
-- The game shows no meaning for a word. Since the user wants children to learn words
-  from it, showing a short definition when a game ends is the obvious next feature; it
-  needs a definitions source whose license allows bundling.
+- The definitions were written by Claude in one sitting and checked only by machine
+  (coverage, length, format). Some will be wrong or clumsy; the user and the children
+  report them.
+- A definition is shown only in the statistics dialog after a game. There is no way to
+  look up a word that was guessed, and no list of words met so far.
 - Not done: other word lengths, other languages, sharing as an image.

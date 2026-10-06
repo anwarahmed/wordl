@@ -8,8 +8,12 @@ SCOWL: http://wordlist.aspell.net/ (see words/SCOWL-COPYRIGHT).
   allowed.txt  every five-letter word up to SCOWL size 80, all spellings.
                These are the guesses the game accepts.
   answers.txt  the common ones (size <= 35, English/American spelling) with
-               plurals, simple inflections and a few unsuitable words
-               removed. Puzzle words are drawn from this list.
+               plurals, simple inflections and unsuitable words removed.
+               Puzzle words are drawn from this list.
+
+words/definitions.txt is not generated: it holds a hand-written meaning for each
+answer, and this script reports where it and answers.txt have drifted apart. The
+game's tests fail until they match again.
 """
 import glob
 import os
@@ -152,6 +156,13 @@ def main():
         with open(os.path.join(out, name), "w") as fh:
             fh.write("\n".join(sorted(words)) + "\n")
         print(f"{name}: {len(words)} words")
+
+    # definitions.txt is written by hand, one line per answer. Say what is out of step.
+    with open(os.path.join(out, "definitions.txt")) as fh:
+        defined = {line.split("\t", 1)[0] for line in fh if line.strip()}
+    for label, words in (("need a definition", answers - defined), ("have a definition but are no longer answers", defined - answers)):
+        if words:
+            print(f"definitions.txt: {len(words)} words {label}: {' '.join(sorted(words))}")
 
 
 if __name__ == "__main__":

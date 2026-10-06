@@ -13,6 +13,7 @@ use crate::font::{self, Label};
 use crate::game::{self, Mark, Mode, Status};
 use crate::layout::{self, Layout};
 use crate::theme::{Paint, Theme};
+use crate::words;
 
 const KEY_ROWS: [&str; 3] = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 /// Dialog lines are at most this wide, so a dialog fits the narrowest supported
@@ -102,6 +103,21 @@ impl Canvas<'_> {
             }
         }
     }
+}
+
+/// Breaks text into lines of at most `width` characters, at spaces.
+fn wrap(text: &str, width: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for word in text.split_whitespace() {
+        match lines.last_mut() {
+            Some(line) if line.chars().count() + 1 + word.chars().count() <= width => {
+                line.push(' ');
+                line.push_str(word);
+            }
+            _ => lines.push(word.to_string()),
+        }
+    }
+    lines
 }
 
 fn mark_paints(th: &Theme, mark: Mark) -> (Paint, Paint) {
@@ -396,14 +412,31 @@ fn dialog(app: &App) -> Option<Dialog> {
             let played = app.stats.of(mode, "played");
             let percent = if played > 0 { app.stats.of(mode, "wins") * 100 / played } else { 0 };
             let mut lines = vec![middle(&format!("STATISTICS · {}", mode.key().to_uppercase()), accent), blank()];
+            // Once a game is over the word is given with what it means: the players are
+            // children, and this is where a new word gets learned.
+            let answer = game::text(&game.answer);
+            let meaning = words::definition(&answer).unwrap_or_default();
+            let word_style = on(th.y.fg, panel).bold();
             match game.status {
-                Status::Won => lines.extend([middle(&format!("Solved in {}/6", game.guesses.len()), on(th.g.fg, panel).bold()), blank()]),
+                Status::Won => {
+                    lines.push(middle(&format!("Solved in {}/6", game.guesses.len()), on(th.g.fg, panel).bold()));
+                    // "CRANE: a tall bird..." with the word picked out on the first line.
+                    for (i, row) in wrap(&format!("{answer}: {meaning}"), DIALOG_WIDTH as usize).into_iter().enumerate() {
+                        match row.strip_prefix(answer.as_str()).filter(|_| i == 0 && !meaning.is_empty()) {
+                            Some(rest) => lines.push(DialogLine { spans: vec![(answer.clone(), word_style), (rest.to_string(), text)], center: true }),
+                            None if !meaning.is_empty() => lines.push(middle(&row, text)),
+                            None => {}
+                        }
+                    }
+                    lines.push(blank());
+                }
                 Status::Lost => {
                     if game.gave_up {
                         lines.push(middle("You gave up", dim));
                     }
-                    let word = vec![("The word was ".to_string(), text), (game::text(&game.answer), on(th.y.fg, panel).bold())];
-                    lines.extend([DialogLine { spans: word, center: true }, blank()]);
+                    lines.push(DialogLine { spans: vec![("The word was ".to_string(), text), (answer, word_style)], center: true });
+                    lines.extend(wrap(meaning, DIALOG_WIDTH as usize).iter().map(|row| middle(row, text)));
+                    lines.push(blank());
                 }
                 Status::Playing => {}
             }
@@ -653,7 +686,32 @@ mod tests {
         app.modal = Modal::Stats;
         let s = screen(&mut app, 39, 24);
         assert!(has(&s, "You gave up") && has(&s, "The word was CRANE") && has(&s, " Enter New "));
+        // The meaning of the word comes with it, wrapped to the dialog.
+        assert!(has(&s, "a tall bird with long legs; a") && has(&s, "machine that lifts"), "{s:#?}");
+
+        // After a win the word is named with its meaning too.
+        app.act(Action::New);
+        app.game.answer = game::word("SKEIN").unwrap();
+        app.game.add_guess(game::word("SKEIN").unwrap());
+        app.modal = Modal::Stats;
+        let s = screen(&mut app, 80, 24);
+        assert!(has(&s, "Solved in 1/6") && has(&s, "SKEIN: a loose bundle of yarn or"), "{s:#?}");
+        // The tallest the dialog gets still fits 24 rows, buttons and all.
+        assert!(has(&s, "╭") && has(&s, "╯") && has(&s, " Esc Close "));
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn wraps_text_at_spaces() {
+        assert_eq!(wrap("a tall bird with long legs; a machine that lifts", 35), ["a tall bird with long legs; a", "machine that lifts"]);
+        assert_eq!(wrap("short", 35), ["short"]);
+        assert!(wrap("", 35).is_empty());
+        // Every definition fits the dialog in three lines, with the word in front.
+        for word in crate::words::answers() {
+            let line = format!("{}: {}", word.to_uppercase(), words::definition(word).unwrap());
+            let rows = wrap(&line, DIALOG_WIDTH as usize);
+            assert!(rows.len() <= 3 && rows.iter().all(|r| r.chars().count() <= DIALOG_WIDTH as usize), "{word}: {rows:?}");
+        }
     }
 
     #[test]

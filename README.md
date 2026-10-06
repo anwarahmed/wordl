@@ -13,6 +13,9 @@ tries.
 - **A new word every time**, plus one daily puzzle that is the same for everyone.
 - **Three difficulty levels**, five color themes, statistics with streaks, and a
   result you can copy and share.
+- **Every word comes with its meaning.** When a game ends, the word is shown with a
+  short, plain definition, so a new word is a word learned. The puzzle words are
+  chosen to be safe for children.
 
 <img src="assets/screenshot-small.png" width="480" alt="wordl in an 80x24 terminal">
 
@@ -211,6 +214,11 @@ any other game. The lists are built into the program:
 
 `tools/build-words.py` regenerates both from a SCOWL download.
 
+`words/definitions.txt` holds a meaning for each of the puzzle words, shown when a
+game ends. These were written for this game, with children in mind: one short line
+each, giving the sense most worth knowing. They are not from a dictionary, so if one
+is wrong or clumsy, an issue or a pull request is welcome.
+
 ## Development
 
 ```sh
@@ -224,7 +232,8 @@ See [CLAUDE.md](CLAUDE.md) for how the code is put together and
 
 ## License
 
-The game is [MIT licensed](LICENSE). The word lists are derived from SCOWL and carry
+The game, including its definitions, is [MIT licensed](LICENSE). The word lists are
+derived from SCOWL and carry
 its notice in [`words/SCOWL-COPYRIGHT`](words/SCOWL-COPYRIGHT); `wordl --licenses`
 prints both.
 

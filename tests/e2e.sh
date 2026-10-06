@@ -178,6 +178,7 @@ else
     keys -l "$(printf '\033[<0;58;23M')"
     expect "game: mouse clicks type and submit; the game is won" "Solved in 2/6"
     expect "game: statistics open after a win" "STATISTICS"
+    expect "game: the word's meaning is shown" "CRANE: a tall bird with long legs;"
     keys Escape
     sleep 0.3 # Escape followed at once by a key would arrive as Alt+key
     tmux -L "$SOCK" resize-window -x 30 -y 8 2>/dev/null
@@ -207,6 +208,7 @@ else
     expect "give up: shows the answer on the board" "█ C █  █ R █  █ A █  █ N █  █ E █"
     expect "give up: says the word" "The word was CRANE"
     expect "give up: statistics follow" "You gave up"
+    expect "give up: the word's meaning is shown" "a tall bird with long legs; a"
     keys Enter
     sleep 0.3
     if screen | grep -qF "S      L      A"; then fail "give up: Enter did not start the next word"; else pass "give up: Enter starts the next word"; fi

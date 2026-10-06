@@ -29,7 +29,7 @@ and it reads the lines from this file, so a line added here is required from the
 - [ ] `README.md` matches the game: features, keys table, options, install, update and uninstall sections
 - [ ] The in-game help matches the game: the `?` dialog, the footer, and `USAGE` in `main.rs`
 - [ ] `CLAUDE.md` is current: decisions, patterns to keep, known gaps
-- [ ] Word lists changed: `tools/build-words.py` was re-run and both lists are committed
+- [ ] Word lists changed: `tools/build-words.py` was re-run, both lists are committed, and `definitions.txt` has a line for every answer
 - [ ] Packaging changed: `PKGBUILD.in` and `SRCINFO.in` changed together, asset names did not
 - [ ] The changes were played in a real terminal, including a tiny window, not only run through the tests
 - [ ] What only a Mac can show is listed in the pull request as not verified
