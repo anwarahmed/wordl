@@ -182,6 +182,14 @@ Single binary crate, no async. One file per concern in `src/`:
   lets the tests point the updater at a `file://` directory. (typeshelf's updater did
   use the API; it was changed to this in its 0.2.5, along with the marker file below.
   The two updaters are now the same design: fix a flaw in one, fix it in both.)
+  - *At most one check a day* (asked for by the user; since 0.2.1). Checking on every
+    start put a network round trip, about 0.4 s, in front of the game each time, for
+    releases that come rarely. A check that gets an answer and finds nothing newer
+    writes the time to `last-update-check` in the state directory, and for 24 hours
+    the start skips the check. Only an answer is noted: a failed check (offline) is
+    tried again at the next start, and so is a failed install. A noted time in the
+    future (the clock was set back) does not count. `wordl update` always checks. To
+    see the check happen again, delete the file.
 - **Package managers switch self-update off with a marker file.** The user asked for
   the Homebrew tap to be what disables it. A package installs
   `share/wordl/managed-by` (one line: its name and how to upgrade) beside the `bin`
@@ -264,8 +272,6 @@ is made the way `make_release` in `tests/e2e.sh` makes one.
   executed in CI; the other three targets are smoke-tested.
 - The README pictures are drawn by `tools/screenshot.py` from tmux's cell data, not
   captured from a terminal window.
-- The update check runs on every start and adds a network round trip before the game
-  appears; there is no once-a-day limit.
 - At the smallest sizes (level 1) tiles in a column touch; there is no room for gaps.
 - Dialogs taller than the terminal lose their last lines.
 - No hover effects, no key-press flash on the on-screen keyboard.

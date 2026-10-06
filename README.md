@@ -77,7 +77,7 @@ cargo run --release
 
 | Installed with | How it updates |
 | -------------- | -------------- |
-| Install script | By itself: each time it starts it checks for a newer release, installs it and restarts |
+| Install script | By itself: when it starts it checks for a newer release, at most once a day, installs it and restarts |
 | Homebrew       | `brew upgrade wordl` |
 | Arch package   | Build the newer `PKGBUILD` the same way |
 | From source    | `git pull`, then build again |
@@ -93,8 +93,9 @@ wordl update        # check now and install a newer release
 wordl update off    # stop checking at startup ("on" turns it back on)
 ```
 
-`WORDL_NO_UPDATE=1` skips the check for one run. The check waits at most three seconds
-and says nothing when you are offline. An update is verified against the release's
+`WORDL_NO_UPDATE=1` skips the check for one run. The check at startup happens at most
+once a day (`wordl update` always checks), waits at most three seconds, and says
+nothing when you are offline. An update is verified against the release's
 SHA-256 checksum and never moves to an older version; if anything fails, the version
 you have starts as usual.
 

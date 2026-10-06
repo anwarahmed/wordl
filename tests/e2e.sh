@@ -226,21 +226,42 @@ else
     # Starting the installed copy when a newer release exists: it updates and restarts
     # as the new version. Switched off, it starts the game without updating.
     if command -v curl >/dev/null 2>&1 && [ -n "$ASSET" ]; then
-        launch() {
+        STAMP=$TMP/ustate/wordl/last-update-check
+        launch() { # <release directory>
             tmux -L "$SOCK" kill-server 2>/dev/null
             tmux -L "$SOCK" new-session -d -x 80 -y 24 \
-                "env XDG_STATE_HOME='$TMP/ustate' WORDL_RELEASE_URL='file://$TMP/rel-new' WORDL_NO_ANIM=1 '$INST'; echo \"EXIT=\$?\"; sleep 20"
+                "env XDG_STATE_HOME='$TMP/ustate' WORDL_RELEASE_URL='file://$1' WORDL_NO_ANIM=1 '$INST'; echo \"EXIT=\$?\"; sleep 20"
         }
         fresh_copy
+        rm -f "$STAMP"
         installed update off >/dev/null
-        launch
+        launch "$TMP/rel-new"
         expect "update: switched off, the game starts" "W   O   R   D   L"
         keys C-q
         expect "update: switched off, it quits cleanly" "EXIT=0"
         has "update: switched off, nothing is updated" "wordl $VERSION (" "$(installed --version)"
+        if [ -e "$STAMP" ]; then fail "update: switched off, yet a check was noted"; else pass "update: switched off, nothing is checked"; fi
         installed update on >/dev/null
-        launch
-        expect "update: starting the game updates it and runs the new version" "wordl 99.0.0 (fake)"
+
+        # At most one check a day: a start that finds nothing newer notes the time, and
+        # the next start does not look again, even with a newer release on offer.
+        launch "$TMP/rel-now"
+        expect "once a day: the game starts after a check that finds nothing" "W   O   R   D   L"
+        keys C-q
+        expect "once a day: it quits cleanly" "EXIT=0"
+        if [ -s "$STAMP" ]; then pass "once a day: the check is noted"; else fail "once a day: no $STAMP"; fi
+        launch "$TMP/rel-new"
+        expect "once a day: the next start goes straight to the game" "W   O   R   D   L"
+        keys C-q
+        expect "once a day: and quits cleanly" "EXIT=0"
+        has "once a day: no second check, so no update" "wordl $VERSION (" "$(installed --version)"
+        has "once a day: asking explicitly still checks" "Updating wordl $VERSION -> 99.0.0" "$(WORDL_RELEASE_URL="file://$TMP/rel-bad" installed update)"
+
+        # A day later (the noted time is old), a start checks again and updates.
+        fresh_copy
+        echo 1000 > "$STAMP"
+        launch "$TMP/rel-new"
+        expect "update: a day later, starting the game updates it and runs the new version" "wordl 99.0.0 (fake)"
     fi
     tmux -L "$SOCK" kill-server 2>/dev/null
 fi
