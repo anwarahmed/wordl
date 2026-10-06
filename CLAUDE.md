@@ -81,6 +81,23 @@ Single binary crate, no async. One file per concern in `src/`:
   (`▄` on top, `▀` at the bottom, in the tile's color on the screen background), which
   is what puts a gap between tiles without spending a row on it. `Canvas::block` draws
   every tile, key and title letter.
+- **Filled blocks are pixel art with a color per pixel** (asked for by the user after
+  comparing nine ways of drawing tiles in a demo; since 0.2.6). `Canvas::sprite` draws
+  a revealed tile, a key or a title letter with a lit top and left edge, a dark bottom
+  and right edge, and a letter that casts a shadow. Each cell is `▀` in the color of
+  its upper pixel on a background in the color of its lower pixel, so it needs no
+  more than the characters the game already used and works in any terminal with
+  enough colors. `Theme::shades` derives the lighter and darker colors from a role's
+  RGB. Things to keep:
+  - The `terminal` theme has no RGB to shade (`Paint::rgb` is `None`), so its blocks
+    stay flat: the code path before `sprite` in `Canvas::block` must keep working.
+  - Frames (empty and typed tiles) are not shaded; only filled blocks are.
+  - A key known not to be in the word is drawn `sunken` (edges swapped, no shadow).
+  - At level 3 there is one row of text, so only the top and bottom edges are shaded.
+  - A dark letter on a bright tile (the `neon` and `contrast` themes) gets a light
+    "shadow" instead of a dark one.
+  - Real images (the kitty graphics protocol) were tried in the demo and rejected:
+    the user's usual terminal does not show them.
 - **All coordinates are `i32` and every write is clipped.** `Canvas::put` drops what is
   off screen, so drawing code never checks bounds and never panics on a tiny window.
   It also resets a cell before writing, so a dialog drawn over bold tiles is not bold.

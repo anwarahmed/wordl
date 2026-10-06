@@ -14,11 +14,26 @@ use ratatui::style::Color;
 pub struct Paint {
     pub fg: Color,
     pub bg: Color,
+    /// The color as red, green and blue, from which lighter and darker shades are
+    /// worked out. `None` in the "terminal" theme, whose colors are the terminal's own
+    /// and cannot be shaded.
+    pub rgb: Option<(u8, u8, u8)>,
+}
+
+/// The shades that make a flat tile look raised: a lit edge, a dark edge, and the
+/// shadow a letter casts on it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Shades {
+    pub light: Color,
+    pub dark: Color,
+    pub shadow: Color,
 }
 
 #[derive(Clone, Copy)]
 pub struct Theme {
     pub name: &'static str,
+    /// Whether colors are sent as exact RGB or as the nearest of 256.
+    truecolor: bool,
     /// The screen.
     pub bg: Paint,
     /// Ordinary text.
@@ -94,10 +109,11 @@ fn from_rgb(name: &'static str, truecolor: bool, c: [(u8, u8, u8); 23]) -> Theme
     let p = |i: usize| {
         let (r, g, b) = c[i];
         let color = if truecolor { Color::Rgb(r, g, b) } else { nearest_256(r, g, b) };
-        Paint { fg: color, bg: color }
+        Paint { fg: color, bg: color, rgb: Some((r, g, b)) }
     };
     Theme {
         name,
+        truecolor,
         bg: p(0),
         fg: p(1),
         dim: p(2),
@@ -126,11 +142,12 @@ fn from_rgb(name: &'static str, truecolor: bool, c: [(u8, u8, u8); 23]) -> Theme
 
 /// The terminal's own colors. `Reset` is its default foreground or background.
 fn terminal() -> Theme {
-    let same = |c: Color| Paint { fg: c, bg: c };
+    let same = |c: Color| Paint { fg: c, bg: c, rgb: None };
     let default = same(Color::Reset);
     Theme {
         name: "terminal",
-        bg: Paint { fg: Color::Black, bg: Color::Reset },
+        truecolor: false,
+        bg: Paint { fg: Color::Black, bg: Color::Reset, rgb: None },
         fg: default,
         dim: same(Color::DarkGray),
         empty: same(Color::DarkGray),
@@ -144,7 +161,7 @@ fn terminal() -> Theme {
         xfg: same(Color::White),
         key: same(Color::Gray),
         keyfg: same(Color::Black),
-        keyx: Paint { fg: Color::DarkGray, bg: Color::Reset },
+        keyx: Paint { fg: Color::DarkGray, bg: Color::Reset, rgb: None },
         keyxfg: same(Color::DarkGray),
         accent: same(Color::Cyan),
         panel: default,
@@ -154,6 +171,24 @@ fn terminal() -> Theme {
         btn: same(Color::Cyan),
         btnfg: same(Color::Black),
     }
+}
+
+impl Theme {
+    /// Lighter and darker versions of a color, for a tile drawn as raised pixel art.
+    /// `None` when the theme's colors cannot be shaded: such tiles stay flat.
+    pub fn shades(&self, paint: Paint) -> Option<Shades> {
+        let (r, g, b) = paint.rgb?;
+        let color = |f: fn(f32) -> f32| {
+            let [r, g, b] = [r, g, b].map(|c| f(c as f32).clamp(0.0, 255.0) as u8);
+            if self.truecolor { Color::Rgb(r, g, b) } else { nearest_256(r, g, b) }
+        };
+        Some(Shades { light: color(|c| c * 1.35 + 20.0), dark: color(|c| c * 0.6), shadow: color(|c| c * 0.45) })
+    }
+}
+
+/// How bright a color looks, from 0 to 255; 128 when it is not known.
+pub fn brightness(paint: Paint) -> u32 {
+    paint.rgb.map_or(128, |(r, g, b)| (299 * r as u32 + 587 * g as u32 + 114 * b as u32) / 1000)
 }
 
 /// The theme of that name; an unknown name gives the default, "midnight".
@@ -285,6 +320,22 @@ mod tests {
         }
         assert_eq!(name, NAMES[0]);
         assert_eq!(theme("no such theme", true).name, "midnight");
+    }
+
+    #[test]
+    fn shades_a_color_lighter_and_darker() {
+        let th = theme("midnight", true);
+        let shades = th.shades(th.g).unwrap();
+        assert_eq!(th.g.bg, Color::Rgb(40, 167, 88));
+        assert_eq!(shades.light, Color::Rgb(74, 245, 138));
+        assert_eq!(shades.dark, Color::Rgb(24, 100, 52));
+        assert_eq!(shades.shadow, Color::Rgb(18, 75, 39));
+        // Without truecolor the shades are still colors the terminal has.
+        assert!(matches!(theme("midnight", false).shades(th.g).unwrap().light, Color::Indexed(_)));
+        // The terminal's own colors cannot be shaded: its tiles stay flat.
+        let terminal = theme("terminal", true);
+        assert_eq!(terminal.shades(terminal.g), None);
+        assert!(brightness(th.gfg) > brightness(th.g));
     }
 
     #[test]

@@ -12,7 +12,7 @@ use crate::app::{Action, App, FLASH_STEP, FLIP, KeyId, MessageKind, Modal, SHAKE
 use crate::font::{self, Label};
 use crate::game::{self, Mark, Mode, Status};
 use crate::layout::{self, Layout};
-use crate::theme::{Paint, Theme};
+use crate::theme::{self, Paint, Shades, Theme};
 use crate::words;
 
 const KEY_ROWS: [&str; 3] = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
@@ -74,8 +74,11 @@ impl Canvas<'_> {
     /// blocks without spending a row on it. `fill` paints the block in `bg`; otherwise
     /// it is a frame in `bg` around the label. `inset` squashes the block vertically,
     /// for the flip animation.
+    ///
+    /// A filled block is drawn raised, as pixel art, where the theme has shades for it
+    /// (see `sprite`); `sunken` presses it in instead.
     #[allow(clippy::too_many_arguments)]
-    fn block(&mut self, x: i32, y: i32, w: i32, t: i32, fill: bool, bg: Paint, fg: Paint, label: Label, inset: i32) {
+    fn block(&mut self, x: i32, y: i32, w: i32, t: i32, fill: bool, bg: Paint, fg: Paint, label: Label, inset: i32, sunken: bool) {
         let screen = self.th.bg.bg;
         if t < 3 {
             return self.put(x, y, &centered(&label.text(w), w), on(fg.fg, bg.bg).bold());
@@ -88,8 +91,21 @@ impl Canvas<'_> {
         if bottom == top {
             return self.put(x, y + top, &"━".repeat(w as usize), edge);
         }
-        self.put(x, y + top, &"▄".repeat(w as usize), edge);
-        self.put(x, y + bottom, &"▀".repeat(w as usize), edge);
+        let shades = self.th.shades(bg).filter(|_| fill);
+        if let Some(shades) = shades
+            && t >= 5
+        {
+            return self.sprite(x, y, w, t, bg, fg, label, inset, sunken, shades);
+        }
+        // With one row of text there is no room for more than a lit top edge and a
+        // dark bottom one.
+        let (above, below) = match shades {
+            Some(s) if sunken => (s.dark, s.light),
+            Some(s) => (s.light, s.dark),
+            None => (bg.fg, bg.fg),
+        };
+        self.put(x, y + top, &"▄".repeat(w as usize), on(above, screen));
+        self.put(x, y + bottom, &"▀".repeat(w as usize), on(below, screen));
         let rows = if t == 3 { vec![centered(&label.text(w), w)] } else { font::glyph(label, w, t) };
         for i in top + 1..bottom {
             let Some(row) = rows.get((i - 1) as usize) else { continue };
@@ -100,6 +116,49 @@ impl Canvas<'_> {
                 self.put(x, y + i, "█", edge);
                 self.put(x + 1, y + i, &inner, on(fg.fg, screen).bold());
                 self.put(x + w - 1, y + i, "█", edge);
+            }
+        }
+    }
+
+    /// A filled block as pixel art: lit top and left edges, dark bottom and right
+    /// edges, and a letter that casts a shadow down and to the right.
+    ///
+    /// Every pixel has its own color. A cell holds two of them, one above the other:
+    /// it is drawn as `▀` in the color of the upper pixel on a background in the color
+    /// of the lower one. The block's first and last pixel rows are the screen's, as
+    /// for flat blocks, which keeps the gap between blocks.
+    #[allow(clippy::too_many_arguments)]
+    fn sprite(&mut self, x: i32, y: i32, w: i32, t: i32, bg: Paint, fg: Paint, label: Label, inset: i32, sunken: bool, shades: Shades) {
+        let screen = self.th.bg.bg;
+        let ink = font::pixels(label, w, t);
+        let inked = |col: i32, row: i32| row >= 2 && col >= 0 && ink.get((row - 2) as usize).and_then(|r| r.get(col as usize)).copied().unwrap_or(false);
+        let (lit, unlit) = if sunken { (shades.dark, shades.light) } else { (shades.light, shades.dark) };
+        // Big blocks get a thicker edge and a longer shadow, so the look scales.
+        let edge = if t >= 10 { 2 } else { 1 };
+        let reach = (font::scale_for(t) + 1) / 2;
+        // A light letter throws a dark shadow; a dark letter on a bright tile gets a
+        // light one instead, and reads as engraved.
+        let cast = if theme::brightness(fg) >= theme::brightness(bg) { shades.shadow } else { shades.light };
+        let (first, last) = (1 + 2 * inset, 2 * t - 2 - 2 * inset);
+        let color_at = |col: i32, row: i32| {
+            if row < first || row > last {
+                screen
+            } else if inked(col, row) {
+                fg.fg
+            } else if row - first < edge || col < edge {
+                lit
+            } else if last - row < edge || w - 1 - col < edge {
+                unlit
+            } else if !sunken && inked(col - reach, row - reach) {
+                cast
+            } else {
+                bg.bg
+            }
+        };
+        for i in inset..t - inset {
+            for col in 0..w {
+                let (upper, lower) = (color_at(col, 2 * i), color_at(col, 2 * i + 1));
+                self.put(x + col, y + i, if upper == lower { " " } else { "▀" }, on(upper, lower));
             }
         }
     }
@@ -161,7 +220,7 @@ fn draw_title(c: &mut Canvas, app: &App, l: &Layout) {
     }
     let colors = [(th.g, th.gfg), (th.y, th.yfg), (th.x, th.xfg), (th.g, th.gfg), (th.y, th.yfg)];
     for (i, (letter, (bg, fg))) in "WORDL".bytes().zip(colors).enumerate() {
-        c.block(x + i as i32 * l.title.px, l.hy, l.title.w, l.title.t, true, bg, fg, Label::Letter(letter), 0);
+        c.block(x + i as i32 * l.title.px, l.hy, l.title.w, l.title.t, true, bg, fg, Label::Letter(letter), 0, false);
     }
 }
 
@@ -214,7 +273,7 @@ fn draw_tile(c: &mut Canvas, app: &App, l: &Layout, row: usize, col: usize) {
         {
             (bg, fg) = (th.win, th.gfg);
         }
-        return c.block(x, y, d.w, d.t, true, bg, fg, Label::Letter(game.guesses[row][col]), inset);
+        return c.block(x, y, d.w, d.t, true, bg, fg, Label::Letter(game.guesses[row][col]), inset, false);
     }
     let letter = if row < guessed {
         Some(game.guesses[row][col])
@@ -228,9 +287,9 @@ fn draw_tile(c: &mut Canvas, app: &App, l: &Layout, row: usize, col: usize) {
     };
     let label = letter.map_or(Label::None, Label::Letter);
     if d.t == 1 {
-        c.block(x, y, d.w, 1, true, th.empty, th.fg, label, 0);
+        c.block(x, y, d.w, 1, true, th.empty, th.fg, label, 0, false);
     } else {
-        c.block(x, y, d.w, d.t, false, if letter.is_some() { th.typed } else { th.empty }, th.fg, label, inset);
+        c.block(x, y, d.w, d.t, false, if letter.is_some() { th.typed } else { th.empty }, th.fg, label, inset, false);
     }
 }
 
@@ -273,7 +332,8 @@ fn draw_keyboard(c: &mut Canvas, app: &App, l: &Layout) {
             Some(mark) => mark_paints(th, mark),
             None => (th.key, th.keyfg),
         };
-        c.block(x, y, w, l.keys.t, true, bg, fg, label, 0);
+        // A key known not to be in the word looks pressed in.
+        c.block(x, y, w, l.keys.t, true, bg, fg, label, 0, mark == Some(Mark::Gray));
     }
 }
 
@@ -630,6 +690,43 @@ mod tests {
         // The typed L as a bitmap inside its frame: a vertical stroke, then its foot.
         assert!(has(&s, "█ ██         █  █            █"), "no block letter");
         assert!(has(&s, "█ ██▄▄▄▄▄▄▄▄ █") || has(&s, "█ ██████████ █"), "no foot of the L");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A revealed tile on a big terminal is pixel art: every cell carries two pixels,
+    /// the upper as the character's color and the lower as its background.
+    #[test]
+    fn revealed_tiles_are_shaded_pixel_art() {
+        let (mut app, dir) = app("sprite");
+        app.game.add_guess(game::word("CRANE").unwrap());
+        app.size = (190, 50);
+        let l = layout::layout(190, 50).unwrap();
+        let cells = |app: &App| {
+            let mut terminal = Terminal::new(TestBackend::new(190, 50)).unwrap();
+            terminal.draw(|f| draw(f, app)).unwrap();
+            let buf = terminal.backend().buffer().clone();
+            move |x: i32, y: i32| buf[((l.bx + x) as u16, (l.by + y) as u16)].clone()
+        };
+        let th = app.theme;
+        let shades = th.shades(th.g).unwrap();
+        let at = cells(&app);
+        // Top-left cell of the first tile: the screen above, the lit edge below.
+        assert_eq!((at(0, 0).symbol(), at(0, 0).fg, at(0, 0).bg), ("▀", th.bg.bg, shades.light));
+        // Further down the left edge both pixels are lit, so the cell is one color.
+        assert_eq!((at(0, 3).symbol(), at(0, 3).bg), (" ", shades.light));
+        // The right edge and the bottom edge are dark.
+        assert_eq!(at(l.board.w - 1, 3).bg, shades.dark);
+        assert_eq!((at(3, l.board.t - 1).fg, at(3, l.board.t - 1).bg), (shades.dark, th.bg.bg));
+        // Somewhere on the tile there is the letter, its shadow, and the plain green.
+        let seen: Vec<_> = (0..l.board.w).flat_map(|x| (0..l.board.t).map(move |y| (x, y))).flat_map(|(x, y)| [at(x, y).fg, at(x, y).bg]).collect();
+        for color in [th.gfg.fg, shades.shadow, th.g.bg] {
+            assert!(seen.contains(&color), "{color:?} is missing from the tile");
+        }
+
+        // The terminal theme has no shades to work with: its tiles stay flat.
+        app.theme = theme::theme("terminal", true);
+        let at = cells(&app);
+        assert_eq!((at(0, 0).symbol(), at(0, 0).fg), ("▄", app.theme.g.fg));
         let _ = std::fs::remove_dir_all(dir);
     }
 

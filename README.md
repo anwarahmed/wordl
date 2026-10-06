@@ -6,7 +6,8 @@ tries.
 ![wordl in a large terminal: block-letter tiles on the left, keyboard on the right](assets/screenshot.png)
 
 - **Fills the terminal and follows its size.** On a large terminal the tiles and keys
-  are big block letters; on a small one they shrink to single characters. Wide
+  are pixel art, with raised edges and shadowed letters; on a small one they shrink to
+  single characters. Wide
   terminals put the keyboard beside the board, tall ones underneath.
 - **Keyboard first, mouse welcome.** Everything has a key; the on-screen keyboard and
   every button can also be clicked.

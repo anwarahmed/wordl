@@ -184,7 +184,7 @@ else
     tmux -L "$SOCK" resize-window -x 30 -y 8 2>/dev/null
     expect "game: a tiny window says so" "wordl needs 39x12"
     tmux -L "$SOCK" resize-window -x 150 -y 46 2>/dev/null
-    expect "game: a big window gets block letters" "█▀▀▀"
+    expect "game: a big window gets big tiles" "█           █  █           █"
     keys C-q
     expect "game: quits cleanly" "EXIT=0"
     is "game: the win is saved" "practice_wins=1" "$(grep -x 'practice_wins=1' "$TMP/xdg/wordl/stats" 2>/dev/null)"

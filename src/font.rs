@@ -105,20 +105,24 @@ pub fn font_for(t: i32) -> (i32, i32) {
     (font, scale)
 }
 
-/// Renders a label for a block `w` cells wide and `t` rows tall (`t >= 5`): one string
-/// per inner row (`t - 2` of them), each `w` characters of space, `▀`, `▄` or `█`.
-/// Colorless; the caller sets the colors around it.
-pub fn glyph(label: Label, w: i32, t: i32) -> Vec<String> {
+/// The scale of a block's letters: how many pixels across one pixel of the font is.
+pub fn scale_for(t: i32) -> i32 {
+    font_for(t).1
+}
+
+/// Renders a label as pixels for a block `w` cells wide and `t` rows tall (`t >= 5`):
+/// `2t - 4` rows of `w`, true where there is ink. These are the rows between the
+/// block's top and bottom pixel rows, which belong to its edge.
+pub fn pixels(label: Label, w: i32, t: i32) -> Vec<Vec<bool>> {
     let a = (2 * t - 4).max(0);
-    let blank = || vec![" ".repeat(w.max(0) as usize); (t - 2).max(0) as usize];
+    let mut px = vec![vec![false; w.max(0) as usize]; a as usize];
     let (bitmap, bw, f, s) = match label {
-        Label::None => return blank(),
         Label::Letter(b) if b.is_ascii_uppercase() => {
             let (f, s) = font_for(t);
             let font = if f == 7 { &FONT7 } else { &FONT5 };
             (font[(b - b'A') as usize], 5, f, s)
         }
-        Label::Letter(_) => return blank(),
+        Label::None | Label::Letter(_) => return px,
         Label::Enter | Label::Back => {
             let s = ((a - a / 8) / 5).min((w - 2) / 7).max(1);
             (if label == Label::Enter { ICON_ENTER } else { ICON_BACK }, 7, 5, s)
@@ -126,8 +130,6 @@ pub fn glyph(label: Label, w: i32, t: i32) -> Vec<String> {
     };
     let (gw, gh) = (bw * s, f * s);
     let (xo, yo) = (((w - gw) / 2).max(0), ((a - gh) / 2).max(0));
-    // Pixel rows, each `w` wide; true is inked.
-    let mut px = vec![vec![false; w.max(0) as usize]; a as usize];
     for (r, line) in bitmap.split(' ').enumerate() {
         for (c, ch) in line.bytes().enumerate() {
             if ch != b'#' {
@@ -143,7 +145,15 @@ pub fn glyph(label: Label, w: i32, t: i32) -> Vec<String> {
             }
         }
     }
-    px.chunks(2)
+    px
+}
+
+/// The same label as rows of characters, one per inner row of the block (`t - 2` of
+/// them): each `w` characters of space, `▀`, `▄` or `█`. Colorless; the caller sets
+/// the colors around it. For blocks drawn in two colors only.
+pub fn glyph(label: Label, w: i32, t: i32) -> Vec<String> {
+    pixels(label, w, t)
+        .chunks(2)
         .map(|pair| {
             (0..w.max(0) as usize)
                 .map(|x| match (pair[0][x], pair.get(1).is_some_and(|row| row[x])) {
