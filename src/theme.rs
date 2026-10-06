@@ -75,7 +75,7 @@ pub struct Theme {
     pub btnfg: Paint,
 }
 
-pub const NAMES: [&str; 5] = ["midnight", "daylight", "neon", "contrast", "terminal"];
+pub const NAMES: [&str; 10] = ["midnight", "daylight", "neon", "contrast", "ocean", "ember", "paper", "sky", "candy", "terminal"];
 
 /// The nearest of the 6x6x6 color cube and the 24-step gray ramp.
 fn nearest_256(r: u8, g: u8, b: u8) -> Color {
@@ -271,6 +271,132 @@ pub fn theme(name: &str, truecolor: bool) -> Theme {
         (133, 192, 249), // btn
         (8, 20, 34), // btnfg
         ]),
+        "ocean" => from_rgb("ocean", truecolor, [
+        (8, 24, 42), // bg
+        (226, 238, 248), // fg
+        (108, 138, 166), // dim
+        (30, 58, 86), // empty
+        (104, 146, 184), // typed
+        (32, 178, 128), // g
+        (236, 180, 52), // y
+        (44, 70, 98), // x
+        (120, 236, 190), // win
+        (255, 255, 255), // gfg
+        (255, 255, 255), // yfg
+        (255, 255, 255), // xfg
+        (62, 100, 138), // key
+        (255, 255, 255), // keyfg
+        (18, 38, 60), // keyx
+        (78, 108, 138), // keyxfg
+        (86, 204, 232), // accent
+        (14, 34, 56), // panel
+        (86, 204, 232), // panelb
+        (226, 238, 248), // toast
+        (8, 24, 42), // toastfg
+        (86, 204, 232), // btn
+        (6, 24, 36), // btnfg
+        ]),
+        "ember" => from_rgb("ember", truecolor, [
+        (28, 18, 16), // bg
+        (248, 236, 226), // fg
+        (160, 130, 118), // dim
+        (74, 50, 44), // empty
+        (176, 136, 120), // typed
+        (96, 170, 72), // g
+        (232, 160, 40), // y
+        (86, 62, 56), // x
+        (170, 236, 130), // win
+        (255, 255, 255), // gfg
+        (255, 255, 255), // yfg
+        (255, 255, 255), // xfg
+        (124, 90, 80), // key
+        (255, 255, 255), // keyfg
+        (46, 31, 28), // keyx
+        (122, 94, 86), // keyxfg
+        (255, 140, 90), // accent
+        (40, 27, 24), // panel
+        (255, 140, 90), // panelb
+        (248, 236, 226), // toast
+        (28, 18, 16), // toastfg
+        (255, 140, 90), // btn
+        (36, 16, 8), // btnfg
+        ]),
+        // The bright ones: a colored page instead of a dark screen.
+        "paper" => from_rgb("paper", truecolor, [
+        (246, 238, 214), // bg
+        (60, 46, 34), // fg
+        (140, 122, 100), // dim
+        (212, 198, 170), // empty
+        (130, 112, 90), // typed
+        (92, 150, 74), // g
+        (212, 150, 36), // y
+        (140, 126, 108), // x
+        (150, 206, 120), // win
+        (255, 252, 244), // gfg
+        (255, 252, 244), // yfg
+        (255, 252, 244), // xfg
+        (222, 208, 180), // key
+        (60, 46, 34), // keyfg
+        (140, 126, 108), // keyx
+        (236, 226, 206), // keyxfg
+        (176, 84, 44), // accent
+        (252, 246, 230), // panel
+        (176, 84, 44), // panelb
+        (60, 46, 34), // toast
+        (246, 238, 214), // toastfg
+        (176, 84, 44), // btn
+        (255, 250, 240), // btnfg
+        ]),
+        "sky" => from_rgb("sky", truecolor, [
+        (176, 216, 248), // bg
+        (16, 40, 72), // fg
+        (64, 98, 140), // dim
+        (128, 176, 220), // empty
+        (56, 96, 144), // typed
+        (36, 150, 84), // g
+        (232, 160, 20), // y
+        (92, 116, 146), // x
+        (110, 214, 150), // win
+        (255, 255, 255), // gfg
+        (255, 255, 255), // yfg
+        (255, 255, 255), // xfg
+        (232, 243, 253), // key
+        (16, 40, 72), // keyfg
+        (110, 146, 186), // keyx
+        (200, 224, 246), // keyxfg
+        (20, 84, 190), // accent
+        (236, 246, 255), // panel
+        (20, 84, 190), // panelb
+        (16, 40, 72), // toast
+        (236, 246, 255), // toastfg
+        (20, 84, 190), // btn
+        (255, 255, 255), // btnfg
+        ]),
+        "candy" => from_rgb("candy", truecolor, [
+        (255, 206, 226), // bg
+        (72, 20, 52), // fg
+        (158, 90, 126), // dim
+        (232, 160, 192), // empty
+        (150, 70, 112), // typed
+        (30, 160, 110), // g
+        (240, 160, 20), // y
+        (150, 110, 134), // x
+        (120, 226, 176), // win
+        (255, 255, 255), // gfg
+        (255, 255, 255), // yfg
+        (255, 255, 255), // xfg
+        (255, 240, 247), // key
+        (72, 20, 52), // keyfg
+        (196, 140, 168), // keyx
+        (250, 222, 236), // keyxfg
+        (200, 30, 120), // accent
+        (255, 244, 249), // panel
+        (200, 30, 120), // panelb
+        (72, 20, 52), // toast
+        (255, 236, 245), // toastfg
+        (200, 30, 120), // btn
+        (255, 255, 255), // btnfg
+        ]),
         "terminal" => terminal(),
         _ => from_rgb("midnight", truecolor, [
         (17, 19, 26), // bg
@@ -322,6 +448,34 @@ mod tests {
         assert_eq!(theme("no such theme", true).name, "midnight");
     }
 
+    /// Whatever is written must stand out from what it is written on, in every theme.
+    #[test]
+    fn text_can_be_read_in_every_theme() {
+        for name in NAMES.into_iter().filter(|name| *name != "terminal") {
+            let th = theme(name, true);
+            let pairs = [
+                ("text", th.fg, th.bg, 120),
+                ("text in a dialog", th.fg, th.panel, 120),
+                ("hints", th.dim, th.bg, 50),
+                ("hints in a dialog", th.dim, th.panel, 50),
+                ("green tile", th.gfg, th.g, 70),
+                ("yellow tile", th.yfg, th.y, 70),
+                ("gray tile", th.xfg, th.x, 70),
+                ("key", th.keyfg, th.key, 100),
+                ("absent key", th.keyxfg, th.keyx, 50),
+                ("message", th.toastfg, th.toast, 100),
+                ("button", th.btnfg, th.btn, 100),
+            ];
+            for (what, text, on, least) in pairs {
+                assert!(brightness(text).abs_diff(brightness(on)) >= least, "{name}: {what}");
+            }
+            // Tiles and keys must not melt into the screen either.
+            for (what, block) in [("green", th.g), ("yellow", th.y), ("gray", th.x), ("key", th.key), ("frame", th.empty)] {
+                assert!(block.rgb != th.bg.rgb && brightness(block).abs_diff(brightness(th.bg)) >= 15, "{name}: {what} on the screen");
+            }
+        }
+    }
+
     #[test]
     fn shades_a_color_lighter_and_darker() {
         let th = theme("midnight", true);
@@ -340,6 +494,8 @@ mod tests {
 
     #[test]
     fn falls_back_to_256_colors() {
+        // Cream must stay cream: a little less green and it lands on the cube's pink.
+        assert_eq!(theme("paper", false).bg.bg, Color::Indexed(230));
         // A dark blue-gray background must not turn into the cube's dark blue.
         assert_eq!(nearest_256(17, 19, 26), Color::Indexed(233));
         assert_eq!(nearest_256(255, 255, 255), Color::Indexed(231));

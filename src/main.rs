@@ -35,7 +35,8 @@ Usage:
 Options:
   -p, --practice            start with a new random word (default)
   -d, --daily               start with today's puzzle
-  -t, --theme NAME          midnight, daylight, neon, contrast or terminal
+  -t, --theme NAME          midnight, daylight, neon, contrast, ocean, ember, paper, sky, candy
+                            or terminal
       --normal              any dictionary word is a valid guess
       --hard                green letters stay fixed, yellow letters must be reused
       --ultra               ultra hard: also, yellow letters must move to another

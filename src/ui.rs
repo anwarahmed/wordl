@@ -515,7 +515,7 @@ fn dialog(app: &App) -> Option<Dialog> {
             }
             let buttons = match game.status {
                 Status::Playing => vec![("Esc Close", Action::Close)],
-                _ => vec![("Enter New", Action::New), ("C Copy", Action::Copy), ("Esc Close", Action::Close)],
+                _ => vec![("N New", Action::New), ("C Copy", Action::Copy), ("Esc Close", Action::Close)],
             };
             Dialog { lines, buttons }
         }
@@ -782,7 +782,7 @@ mod tests {
         app.game.give_up();
         app.modal = Modal::Stats;
         let s = screen(&mut app, 39, 24);
-        assert!(has(&s, "You gave up") && has(&s, "The word was CRANE") && has(&s, " Enter New "));
+        assert!(has(&s, "You gave up") && has(&s, "The word was CRANE") && has(&s, " N New "));
         // The meaning of the word comes with it, wrapped to the dialog.
         assert!(has(&s, "a tall bird with long legs; a") && has(&s, "machine that lifts"), "{s:#?}");
 

@@ -148,6 +148,13 @@ Single binary crate, no async. One file per concern in `src/`:
   the exception and resumes, because there is one word a day; its word is
   `(day * 7919 + 104729) % number of answers`, with the day counted in local time, so
   changing `words/answers.txt` changes the daily word.
+- **Enter does nothing in the result dialog; `N` starts the next word** (asked for by
+  the user; since 0.2.7). Enter used to start it, but Enter also submits guesses and
+  opens the statistics of a finished game, so one press too many threw away the
+  result, and with it the word's meaning, before anyone had read it. So in the
+  statistics dialog of a finished game Enter is ignored (it does not close the dialog
+  either), and `N`, `C` and `Esc` answer it. Any other key still closes it. The give-up
+  question keeps Enter: it is asked for with `Ctrl-G`, never reached by accident.
 - **Three difficulties**, specified by the user: Normal; Hard (green stays, yellow is
   reused); Ultra Hard (also: yellow must move, gray is obeyed). For repeated letters,
   gray means "no more copies than this guess showed as green or yellow". A game under
@@ -157,7 +164,7 @@ Single binary crate, no async. One file per concern in `src/`:
   stuck). It asks first, because one stray key would otherwise end a game. It counts as
   a loss (a free way out would make the statistics meaningless), shows the answer in
   the next empty row and in the message, and leads to the statistics dialog, where
-  Enter starts the next word. `Game::gave_up` is separate from `Status::Lost` only so
+  `N` starts the next word. `Game::gave_up` is separate from `Status::Lost` only so
   the screen can say so and so a given-up daily puzzle is not resumed.
 - **Own word lists, from SCOWL.** Not the original game's lists: SCOWL is permissively
   licensed and asks for its notice to travel with copies, so `wordl --licenses` prints
@@ -209,6 +216,12 @@ Single binary crate, no async. One file per concern in `src/`:
 - **The state files are the bash version's.** `$XDG_STATE_HOME/wordl/stats` and `daily`
   kept their `key=value` format so nobody's statistics were lost in the rewrite. XDG
   paths on macOS too, not `~/Library`.
+- **Ten themes, four of them bright** (`daylight`, `paper`, `sky`, `candy`; the user
+  asked for more themes and for bright backgrounds in 0.2.7, which added `ocean`,
+  `ember` and the last three). A theme is 23 colors in `theme::theme` plus its name in
+  `NAMES`, the README and `USAGE`. A test checks that text stands out from what it is
+  on in every theme, but only looking shows whether it is pleasant, in truecolor and
+  without `COLORTERM` (the nearest of 256 colors can turn cream into pink).
 - **Default theme is `midnight`** with its own background, so the game looks the same
   everywhere; `terminal` is there for following the terminal's theme (the user runs
   Omarchy, which themes the terminal). Terminals that don't announce truecolor

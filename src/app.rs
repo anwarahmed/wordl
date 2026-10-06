@@ -415,7 +415,10 @@ impl App {
         let playing = self.game.playing();
         match (self.modal, key.code) {
             (Modal::None, _) => {}
-            (Modal::Stats, KeyCode::Enter | KeyCode::Char('n' | 'N')) if !playing => return self.act(Action::New),
+            (Modal::Stats, KeyCode::Char('n' | 'N')) if !playing => return self.act(Action::New),
+            // Enter submits guesses and is easily pressed once too often: here it must
+            // neither start the next word nor close the result before it has been read.
+            (Modal::Stats, KeyCode::Enter) if !playing => return,
             (Modal::Stats, KeyCode::Char('c' | 'C')) if !playing => return self.act(Action::Copy),
             (Modal::GiveUp, KeyCode::Enter | KeyCode::Char('y' | 'Y')) => return self.act(Action::Surrender),
             _ => return self.act(Action::Close),
@@ -529,10 +532,14 @@ mod tests {
         assert_eq!(app.game.status, Status::Won);
         assert_eq!(message(&app), "Magnificent! Solved in 2/6");
         assert_eq!((app.stats.of(Mode::Practice, "wins"), app.stats.of(Mode::Practice, "d2")), (1, 1));
-        // Enter on a finished game opens the statistics; Enter there starts the next word.
+        // Enter on a finished game opens the statistics, and more of it changes nothing:
+        // the result stays up until it is answered with N, C or Esc.
         app.on_key(key(KeyCode::Enter));
         assert_eq!(app.modal, Modal::Stats);
         app.on_key(key(KeyCode::Enter));
+        app.on_key(key(KeyCode::Enter));
+        assert_eq!((app.modal, app.game.status), (Modal::Stats, Status::Won));
+        app.on_key(key(KeyCode::Char('n')));
         assert_eq!((app.modal, app.game.guesses.len(), app.game.status), (Modal::None, 0, Status::Playing));
         let _ = std::fs::remove_dir_all(dir);
     }

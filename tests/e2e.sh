@@ -211,7 +211,10 @@ else
     expect "give up: the word's meaning is shown" "a tall bird with long legs; a"
     keys Enter
     sleep 0.3
-    if screen | grep -qF "S      L      A"; then fail "give up: Enter did not start the next word"; else pass "give up: Enter starts the next word"; fi
+    expect "give up: Enter leaves the result up" "You gave up"
+    keys n
+    sleep 0.3
+    if screen | grep -qF "S      L      A"; then fail "give up: N did not start the next word"; else pass "give up: N starts the next word"; fi
     is "give up: saved as a loss" "practice_played=1" "$(grep -x 'practice_played=1' "$TMP/xdg2/wordl/stats" 2>/dev/null)"
 
     # With animations on: a guess is revealed, and keys typed meanwhile are kept.

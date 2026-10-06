@@ -12,7 +12,7 @@ tries.
 - **Keyboard first, mouse welcome.** Everything has a key; the on-screen keyboard and
   every button can also be clicked.
 - **A new word every time**, plus one daily puzzle that is the same for everyone.
-- **Three difficulty levels**, five color themes, statistics with streaks, and a
+- **Three difficulty levels**, ten color themes, statistics with streaks, and a
   result you can copy and share.
 - **Every word comes with its meaning.** When a game ends, the word is shown with a
   short, plain definition, so a new word is a word learned. The puzzle words are
@@ -156,14 +156,19 @@ Hard with `**`.
 
 When a game is going nowhere, which happens most on Hard and Ultra Hard, `Ctrl-G` ends
 it. The game asks first, then shows the word on the board and counts the game as a
-loss. From the statistics that follow, Enter starts the next word. A daily puzzle that
+loss. From the statistics that follow, `N` starts the next word. A daily puzzle that
 was given up stays given up for the day.
 
 ### Themes
 
-`midnight` (the default), `daylight`, `neon`, `contrast` and `terminal`. `contrast`
-uses orange and blue instead of green and yellow, for color-blind players. `terminal`
-uses only your terminal's own 16 colors, so it follows your terminal theme.
+`Ctrl-T` steps through ten of them, and `--theme` starts with one:
+
+- dark: `midnight` (the default), `neon`, `contrast`, `ocean` and `ember`;
+- bright: `daylight` (white), `paper` (cream), `sky` (blue) and `candy` (pink);
+- `terminal`, which uses only your terminal's own 16 colors, so it follows your
+  terminal theme.
+
+`contrast` uses orange and blue instead of green and yellow, for color-blind players.
 
 ### Terminal size
 
@@ -185,7 +190,8 @@ wordl --help | --version | --licenses
 
   -p, --practice            start with a new random word (default)
   -d, --daily               start with today's puzzle
-  -t, --theme NAME          midnight, daylight, neon, contrast or terminal
+  -t, --theme NAME          midnight, daylight, neon, contrast, ocean, ember, paper, sky, candy
+                            or terminal
       --normal              any dictionary word is a valid guess
       --hard                green letters stay fixed, yellow letters must be reused
       --ultra               ultra hard: also, yellow letters must move to another
