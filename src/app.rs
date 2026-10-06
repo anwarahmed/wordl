@@ -415,11 +415,13 @@ impl App {
         let playing = self.game.playing();
         match (self.modal, key.code) {
             (Modal::None, _) => {}
+            // The result of a game stays up until it is answered with N, C or Esc. Enter
+            // and letters are pressed once too often at the end of a game, and must not
+            // take the result away before it has been read.
             (Modal::Stats, KeyCode::Char('n' | 'N')) if !playing => return self.act(Action::New),
-            // Enter submits guesses and is easily pressed once too often: here it must
-            // neither start the next word nor close the result before it has been read.
-            (Modal::Stats, KeyCode::Enter) if !playing => return,
             (Modal::Stats, KeyCode::Char('c' | 'C')) if !playing => return self.act(Action::Copy),
+            (Modal::Stats, KeyCode::Esc) if !playing => return self.act(Action::Close),
+            (Modal::Stats, _) if !playing => return,
             (Modal::GiveUp, KeyCode::Enter | KeyCode::Char('y' | 'Y')) => return self.act(Action::Surrender),
             _ => return self.act(Action::Close),
         }
@@ -440,7 +442,7 @@ impl App {
     }
 
     /// A left click presses whatever is under it; with a dialog open, a click anywhere
-    /// else closes the dialog.
+    /// else closes the dialog, except the result of a game, which only its buttons close.
     pub fn on_mouse(&mut self, mouse: MouseEvent) {
         if mouse.kind != MouseEventKind::Down(MouseButton::Left) {
             return;
@@ -448,6 +450,7 @@ impl App {
         self.pending_stats = None;
         match ui::action_at(self, mouse.column as i32, mouse.row as i32) {
             Some(action) => self.act(action),
+            None if self.modal == Modal::Stats && !self.game.playing() => {}
             None if self.modal != Modal::None => self.act(Action::Close),
             None => {}
         }
@@ -536,11 +539,23 @@ mod tests {
         // the result stays up until it is answered with N, C or Esc.
         app.on_key(key(KeyCode::Enter));
         assert_eq!(app.modal, Modal::Stats);
-        app.on_key(key(KeyCode::Enter));
-        app.on_key(key(KeyCode::Enter));
+        for stray in [KeyCode::Enter, KeyCode::Enter, KeyCode::Char('e'), KeyCode::Char(' '), KeyCode::Backspace, KeyCode::Char('?')] {
+            app.on_key(key(stray));
+        }
+        app.on_mouse(MouseEvent { kind: MouseEventKind::Down(MouseButton::Left), column: 0, row: 0, modifiers: KeyModifiers::NONE });
         assert_eq!((app.modal, app.game.status), (Modal::Stats, Status::Won));
+        // Esc closes it, Enter brings it back, N starts the next word.
+        app.on_key(key(KeyCode::Esc));
+        assert_eq!(app.modal, Modal::None);
+        app.on_key(key(KeyCode::Enter));
+        assert_eq!(app.modal, Modal::Stats);
         app.on_key(key(KeyCode::Char('n')));
         assert_eq!((app.modal, app.game.guesses.len(), app.game.status), (Modal::None, 0, Status::Playing));
+        // The statistics of a game under way are only a look: any key closes them.
+        app.on_key(ctrl('s'));
+        assert_eq!(app.modal, Modal::Stats);
+        app.on_key(key(KeyCode::Char('e')));
+        assert_eq!((app.modal, app.game.cur.len()), (Modal::None, 0));
         let _ = std::fs::remove_dir_all(dir);
     }
 

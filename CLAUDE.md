@@ -148,13 +148,17 @@ Single binary crate, no async. One file per concern in `src/`:
   the exception and resumes, because there is one word a day; its word is
   `(day * 7919 + 104729) % number of answers`, with the day counted in local time, so
   changing `words/answers.txt` changes the daily word.
-- **Enter does nothing in the result dialog; `N` starts the next word** (asked for by
-  the user; since 0.2.7). Enter used to start it, but Enter also submits guesses and
-  opens the statistics of a finished game, so one press too many threw away the
-  result, and with it the word's meaning, before anyone had read it. So in the
-  statistics dialog of a finished game Enter is ignored (it does not close the dialog
-  either), and `N`, `C` and `Esc` answer it. Any other key still closes it. The give-up
-  question keeps Enter: it is asked for with `Ctrl-G`, never reached by accident.
+- **The result dialog stays up until `N`, `C` or `Esc`; `N` starts the next word**
+  (asked for by the user, in two steps). Enter used to start the next word, but Enter
+  also submits guesses and opens the statistics of a finished game, so one press too
+  many threw away the result, and with it the word's meaning, before anyone had read
+  it. 0.2.7 made Enter do nothing there and gave the next word to `N`; any other key
+  still closed the dialog, and the user then asked for that to stop too (0.2.8). So in the
+  statistics dialog of a finished game every other key is ignored, and so is a click
+  outside the dialog; its three buttons can be clicked. `Ctrl-Q`, `Ctrl-T` and `Ctrl-L`
+  work as everywhere. The statistics of a game under way (`Ctrl-S`) and the help still
+  close on any key. The give-up question keeps Enter: it is asked for with `Ctrl-G`,
+  never reached by accident.
 - **Three difficulties**, specified by the user: Normal; Hard (green stays, yellow is
   reused); Ultra Hard (also: yellow must move, gray is obeyed). For repeated letters,
   gray means "no more copies than this guess showed as green or yellow". A game under

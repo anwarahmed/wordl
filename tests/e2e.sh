@@ -210,8 +210,9 @@ else
     expect "give up: statistics follow" "You gave up"
     expect "give up: the word's meaning is shown" "a tall bird with long legs; a"
     keys Enter
+    keys -l "zq "
     sleep 0.3
-    expect "give up: Enter leaves the result up" "You gave up"
+    expect "give up: Enter and stray keys leave the result up" "You gave up"
     keys n
     sleep 0.3
     if screen | grep -qF "S      L      A"; then fail "give up: N did not start the next word"; else pass "give up: N starts the next word"; fi
