@@ -176,8 +176,12 @@ Single binary crate, no async. One file per concern in `src/`:
   than `CARGO_PKG_VERSION` it downloads the asset for this platform, checks it against
   `SHA256SUMS`, renames it over the running binary and re-execs with
   `WORDL_NO_UPDATE=1` so it can't loop. Any failure keeps the current version. It never
-  downgrades. Unlike typeshelf it does not use the GitHub API: a plain download has no
-  rate limit, and it lets the tests point the updater at a `file://` directory.
+  downgrades. It does not use the GitHub API: without a token the API allows 60
+  requests an hour per address, which a check on every start can use up on a shared
+  network, and a refused check is silent. A plain download has no such limit, and it
+  lets the tests point the updater at a `file://` directory. (typeshelf's updater did
+  use the API; it was changed to this in its 0.2.5, along with the marker file below.
+  The two updaters are now the same design: fix a flaw in one, fix it in both.)
 - **Package managers switch self-update off with a marker file.** The user asked for
   the Homebrew tap to be what disables it. A package installs
   `share/wordl/managed-by` (one line: its name and how to upgrade) beside the `bin`
