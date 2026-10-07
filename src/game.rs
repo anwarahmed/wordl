@@ -152,6 +152,11 @@ pub enum Status {
     Lost,
 }
 
+/// How many guesses a game allows unless told otherwise.
+pub const TRIES: usize = 6;
+/// The most a game can be told to allow; a saved game claiming more is not believed.
+pub const MAX_TRIES: usize = 12;
+
 /// The day number (days since 1970-01-01, local time) of the day before puzzle #1.
 pub const DAILY_BASE: i64 = 20726;
 
@@ -177,11 +182,20 @@ pub struct Game {
     pub difficulty: Difficulty,
     /// Lost by giving up rather than by running out of guesses.
     pub gave_up: bool,
+    /// How many guesses the game allows: six, unless `with_tries` said otherwise.
+    pub tries: usize,
 }
 
 impl Game {
     pub fn new(mode: Mode, day: i64, answer: Word, difficulty: Difficulty) -> Self {
-        Self { mode, day, answer, guesses: Vec::new(), marks: Vec::new(), cur: Vec::new(), status: Status::Playing, difficulty, gave_up: false }
+        Self { mode, day, answer, guesses: Vec::new(), marks: Vec::new(), cur: Vec::new(), status: Status::Playing, difficulty, gave_up: false, tries: TRIES }
+    }
+
+    /// The same game allowing `tries` guesses (at least one, at most `MAX_TRIES`), for
+    /// an easier or a harder game than the usual six.
+    pub fn with_tries(mut self, tries: usize) -> Self {
+        self.tries = tries.clamp(1, MAX_TRIES);
+        self
     }
 
     pub fn playing(&self) -> bool {
@@ -194,7 +208,7 @@ impl Game {
         self.guesses.push(guess);
         if guess == self.answer {
             self.status = Status::Won;
-        } else if self.guesses.len() >= 6 {
+        } else if self.guesses.len() >= self.tries {
             self.status = Status::Lost;
         }
     }
@@ -303,6 +317,22 @@ mod tests {
         }
         assert_eq!(game.status, Status::Lost);
         assert!(!game.gave_up);
+    }
+
+    #[test]
+    fn a_game_can_allow_more_or_fewer_guesses() {
+        let mut game = Game::new(Mode::Practice, 0, w("CRANE"), Difficulty::Normal).with_tries(8);
+        for _ in 0..7 {
+            game.add_guess(w("SLATE"));
+        }
+        assert_eq!(game.status, Status::Playing);
+        game.add_guess(w("SLATE"));
+        assert_eq!(game.status, Status::Lost);
+
+        let mut game = Game::new(Mode::Practice, 0, w("CRANE"), Difficulty::Normal).with_tries(1);
+        game.add_guess(w("SLATE"));
+        assert_eq!(game.status, Status::Lost);
+        assert_eq!(Game::new(Mode::Practice, 0, w("CRANE"), Difficulty::Normal).with_tries(99).tries, MAX_TRIES);
     }
 
     #[test]
