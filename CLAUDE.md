@@ -43,26 +43,50 @@ points it, and the self-updater, at another download base (a `file://` directory
 - **Sibling repo:** https://github.com/anwarahmed/homebrew-tap holds the generated
   Homebrew formula (`Formula/wordl.rb`, written by its `scripts/formulae/wordl.sh`). It
   takes direct pushes, because its bot commits formulae to `main`.
+- **Sibling repo:** https://github.com/anwarahmed/funwordl is a second game, more
+  playful and easier by default, built on this crate's library half (see "A library
+  and a game" below). It names this repository at a commit in its `Cargo.toml`, so a
+  change to `game.rs`, `store.rs`, `update.rs`, `words.rs` or `words/` reaches it only
+  when that commit is raised there. Before merging a change to what those files make
+  public, build funwordl against the branch (a `[patch]` or a `path` dependency in a
+  funwordl worktree) so it is not left unable to move forward.
 
 ## Architecture
 
-Single binary crate, no async. One file per concern in `src/`:
+One crate, no async, in two halves: a library (`lib.rs`) holding what does not depend
+on the screen, and the game (`main.rs`), which is one user of it. One file per concern
+in `src/`:
 
-| File        | Role |
-|-------------|------|
-| `main.rs`   | CLI options, terminal setup/teardown, event loop |
-| `app.rs`    | `App` state, all key and mouse handling, what each action does, animation timing |
-| `ui.rs`     | All drawing, and the geometry that says what a click landed on. Pure functions of `&App` |
-| `game.rs`   | The rules: `evaluate`, `check_clues` (the difficulties), `Game` for one game |
-| `layout.rs` | `layout(cols, rows)`: sizes and positions for a terminal size |
-| `font.rs`   | Two bitmap fonts and `glyph`, which turns a letter into rows of half blocks |
-| `theme.rs`  | Color themes as roles; 256-color fallback |
-| `store.rs`  | `Stats` (statistics and settings) and the saved daily puzzle, as `key=value` files |
-| `words.rs`  | The two word lists and the definitions, embedded with `include_str!` |
-| `update.rs` | Startup self-update and `wordl update` |
+| File        | Half    | Role |
+|-------------|---------|------|
+| `lib.rs`    | library | Declares the four library modules and says what they are for |
+| `game.rs`   | library | The rules: `evaluate`, `check_clues` (the difficulties), `Game` for one game |
+| `words.rs`  | library | The two word lists and the definitions, embedded with `include_str!` |
+| `store.rs`  | library | `Stats` (statistics and settings) and the saved daily puzzle, as `key=value` files |
+| `update.rs` | library | Startup self-update and `wordl update`, for whichever `Program` asks |
+| `main.rs`   | game    | CLI options, terminal setup/teardown, event loop |
+| `app.rs`    | game    | `App` state, all key and mouse handling, what each action does, animation timing |
+| `ui.rs`     | game    | All drawing, and the geometry that says what a click landed on. Pure functions of `&App` |
+| `layout.rs` | game    | `layout(cols, rows)`: sizes and positions for a terminal size |
+| `font.rs`   | game    | Two bitmap fonts and `glyph`, which turns a letter into rows of half blocks |
+| `theme.rs`  | game    | Color themes as roles; 256-color fallback |
+
+`main.rs` imports the library modules at its top (`use wordl::{game, store, words}`),
+so the game's modules reach them as `crate::game` and so on.
 
 ### Patterns to keep
 
+- **The library does not know its name.** funwordl compiles the same code, so nothing
+  in the four library modules may say "wordl" where the program's own name is meant,
+  or read `CARGO_PKG_VERSION` (inside a dependency that is wordl's version, not the
+  game's). The binary describes itself in a `update::Program` (name, version,
+  repository), from which the updater derives the release address, the asset names
+  (`<name>-<rust target>`), the environment variables (`<NAME>_NO_UPDATE`,
+  `<NAME>_RELEASE_URL`) and the marker file (`share/<name>/managed-by`);
+  `store::state_dir` takes the name too. `build.rs`'s commit stamp is likewise read
+  only in `main.rs`.
+- **What the library makes public is a promise to funwordl.** Add to it freely;
+  renaming or removing something public means changing funwordl in step.
 - **State / view split.** `app.rs` owns state and input; `ui.rs` only reads. Nothing is
   remembered about the screen: every frame is drawn from the state and the size.
 - **The rules are pure.** `game.rs` has no I/O and no clock, so it is unit-tested
@@ -128,6 +152,21 @@ Single binary crate, no async. One file per concern in `src/`:
 
 ## Decisions and why
 
+- **A library and a game** (since the commit after 0.2.8). The user wanted a second,
+  more playful game for the children, funwordl, without giving up this one, and asked
+  for the shared core to stay in sync. So the core is a library here and funwordl
+  depends on it: a wrong word or a clumsy definition is fixed once, in this
+  repository, and funwordl picks it up by pointing at the newer commit. What is
+  shared is the rules, the word lists and definitions, the saved-file format and the
+  updater; what a game looks like and how it is played (`app`, `ui`, `layout`,
+  `font`, `theme`) is each game's own. Considered and not chosen: a third repository
+  holding only the core (a third set of rulesets and releases, and every word fix
+  touching three repositories), and one repository building both games (it gives up
+  the separate repository the user asked for and muddles "merging a version bump is
+  a release"). The one rule added for funwordl's sake is the number of guesses:
+  `Game::tries`, six unless `with_tries` says otherwise, saved with the daily puzzle
+  as `tries` (absent means six, so older files and older versions are unaffected).
+  Here it is always six.
 - **Rust + ratatui, like the user's typeshelf.** The first version (0.1.x) was a bash
   script, because the request said "bash-based"; the user later clarified that meant
   "runs in a terminal", not "written in bash", and asked for a rewrite in Rust keeping
@@ -301,7 +340,9 @@ Single binary crate, no async. One file per concern in `src/`:
   and ratatui 0.30 needs it. CI's `test` jobs use latest stable, so a separate `msrv`
   job builds and tests on exactly 1.88; raise both together.
 - **Few dependencies:** ratatui (with its re-exported crossterm; do not add a separate
-  crossterm), chrono for the local date, ureq and sha2 for the updater. No
+  crossterm), chrono for the local date, ureq and sha2 for the updater. (The library
+  half needs only the last two, but a crate's dependencies are not split by half;
+  funwordl uses ratatui and chrono itself, so nothing extra is built for it.) No
   argument-parsing, serde or random-number crates: the CLI is a dozen flags, the files
   are `key=value`, and picking a word needs only a xorshift.
 

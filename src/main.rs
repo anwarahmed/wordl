@@ -1,12 +1,8 @@
 mod app;
 mod font;
-mod game;
 mod layout;
-mod store;
 mod theme;
 mod ui;
-mod update;
-mod words;
 
 use std::cell::RefCell;
 use std::io::{self, IsTerminal, Write, stdout};
@@ -19,9 +15,20 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyEventKind};
 use ratatui::crossterm::execute;
 
+// The rules, the words, the saved files and the updater are the library half of this
+// crate (`lib.rs`). Imported here so the modules above reach them as `crate::game` etc.
+use wordl::update::Program;
+use wordl::{game, store, words};
+
 use app::{App, Options};
 use game::{Difficulty, Mode};
 use store::Stats;
+
+/// Who the updater works for: this binary, not the library, knows its name and version.
+const PROGRAM: Program = Program { name: "wordl", version: env!("CARGO_PKG_VERSION"), repo: "anwarahmed/wordl" };
+/// The commit this binary was built from, for `--version`; empty if unknown, `-dirty`
+/// if the tree had local changes.
+const COMMIT: &str = env!("WORDL_COMMIT");
 
 const USAGE: &str = "\
 wordl - a Wordle-style word game for the terminal
@@ -61,7 +68,7 @@ fn fail(msg: &str) -> ExitCode {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let mut stats = Stats::load(store::state_dir());
+    let mut stats = Stats::load(store::state_dir(PROGRAM.name));
     let mut options = Options {
         mode: Mode::Practice,
         theme: None,
@@ -79,7 +86,7 @@ fn main() -> ExitCode {
                 return ExitCode::SUCCESS;
             }
             "-v" | "-V" | "--version" => {
-                println!("wordl {} ({})", update::VERSION, if update::COMMIT.is_empty() { "unknown commit" } else { update::COMMIT });
+                println!("wordl {} ({})", PROGRAM.version, if COMMIT.is_empty() { "unknown commit" } else { COMMIT });
                 return ExitCode::SUCCESS;
             }
             "--licenses" => {
@@ -89,7 +96,7 @@ fn main() -> ExitCode {
             }
             "update" => {
                 return match rest.next() {
-                    None => update::command().map_or_else(|e| fail(&e), |()| ExitCode::SUCCESS),
+                    None => PROGRAM.command().map_or_else(|e| fail(&e), |()| ExitCode::SUCCESS),
                     Some(switch @ ("on" | "off")) => {
                         stats.set("update", (switch == "on") as u8);
                         stats.save();
@@ -116,7 +123,7 @@ fn main() -> ExitCode {
     if !io::stdin().is_terminal() || !stdout().is_terminal() {
         return fail("needs an interactive terminal.");
     }
-    update::before_start(stats.auto_update());
+    PROGRAM.before_start(stats.auto_update());
 
     // Installed before ratatui's hook, which restores the terminal and then calls this one.
     let default_hook = std::panic::take_hook();

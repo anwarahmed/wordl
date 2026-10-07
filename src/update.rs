@@ -3,6 +3,9 @@
 //!
 //! Only copies the user installed themselves update this way. A build run from a source
 //! checkout, or a copy owned by a package manager (Homebrew, pacman), is left alone.
+//!
+//! Everything here works for a `Program`, so a game built on this library updates
+//! itself from its own releases, under its own name.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -15,23 +18,20 @@ use sha2::{Digest, Sha256};
 
 use crate::store::{checkout_root, real_exe, state_dir};
 
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-/// The commit this binary was built from, for `--version`; empty if unknown, `-dirty`
-/// if the tree had local changes.
-pub const COMMIT: &str = env!("WORDL_COMMIT");
+/// The program being updated. Its binary says who it is: this library is also compiled
+/// into other games, where its own name and version would be the wrong ones.
+#[derive(Clone, Copy, Debug)]
+pub struct Program {
+    /// The command, e.g. `wordl`. Also the name of its state directory, the start of
+    /// its release assets' names (`wordl-<rust target>`) and, in capitals, of its
+    /// environment variables.
+    pub name: &'static str,
+    /// The running version: `env!("CARGO_PKG_VERSION")` in the binary's own crate.
+    pub version: &'static str,
+    /// The GitHub repository whose releases it comes from, as `owner/name`.
+    pub repo: &'static str,
+}
 
-/// Where the latest release's files are: `VERSION`, `SHA256SUMS` and one binary per
-/// platform. No API is involved, so there is no rate limit to run into.
-const RELEASES: &str = "https://github.com/anwarahmed/wordl/releases/latest/download";
-/// Points the updater somewhere else; `file://` works, which is how it is tested.
-const URL_ENV: &str = "WORDL_RELEASE_URL";
-/// Set on the restarted process so a failed or raced update can't loop; also the
-/// switch to skip the check for one run.
-const SKIP_ENV: &str = "WORDL_NO_UPDATE";
-/// A package that owns its copy installs this file, relative to the directory of the
-/// binary, naming itself and how to upgrade. Homebrew's formula and the AUR package
-/// both do; the game then leaves updating to them.
-const MANAGED_BY: &str = "../share/wordl/managed-by";
 /// The check at startup looks for a release at most this often. It costs a network
 /// round trip before the game appears, and releases are rare; `wordl update` checks at
 /// once regardless.
@@ -54,53 +54,14 @@ fn parse_version(s: &str) -> Option<Version> {
     }
 }
 
-/// The release asset built for this platform, if there is one.
-fn asset_name() -> Option<&'static str> {
+/// The Rust target a release binary exists for on this platform, if one does.
+fn target() -> Option<&'static str> {
     match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("linux", "x86_64") => Some("wordl-x86_64-unknown-linux-musl"),
-        ("linux", "aarch64") => Some("wordl-aarch64-unknown-linux-musl"),
-        ("macos", "aarch64") => Some("wordl-aarch64-apple-darwin"),
-        ("macos", "x86_64") => Some("wordl-x86_64-apple-darwin"),
+        ("linux", "x86_64") => Some("x86_64-unknown-linux-musl"),
+        ("linux", "aarch64") => Some("aarch64-unknown-linux-musl"),
+        ("macos", "aarch64") => Some("aarch64-apple-darwin"),
+        ("macos", "x86_64") => Some("x86_64-apple-darwin"),
         _ => None,
-    }
-}
-
-fn writable(dir: &Path) -> bool {
-    let probe = dir.join(format!(".wordl-write-test-{}", std::process::id()));
-    let ok = fs::write(&probe, b"").is_ok();
-    let _ = fs::remove_file(probe);
-    ok
-}
-
-/// The package that owns the copy at `exe`, as its marker file words it
-/// ("Homebrew; use brew upgrade wordl"), if one does.
-fn managed_by(exe: &Path) -> Option<String> {
-    let marker = fs::read_to_string(exe.parent()?.join(MANAGED_BY)).ok()?;
-    marker.lines().next().map(str::trim).filter(|line| !line.is_empty()).map(str::to_string)
-}
-
-/// Why this copy doesn't update itself, if it doesn't. `asked` is for `wordl update`:
-/// asking explicitly overrides the two off switches, and nothing else.
-fn skip_reason(enabled: bool, asked: bool, exe: &Path) -> Option<String> {
-    let fixed = |s: &str| Some(s.to_string());
-    if !asked && std::env::var_os(SKIP_ENV).is_some_and(|v| !v.is_empty()) {
-        fixed("WORDL_NO_UPDATE is set")
-    } else if !asked && !enabled {
-        fixed("turned off; 'wordl update on' turns it back on")
-    } else if checkout_root().is_some() {
-        fixed("running from a source checkout; use git pull and cargo build")
-    } else if let Some(owner) = managed_by(exe) {
-        Some(format!("installed with {owner}"))
-    } else if exe.components().any(|c| c.as_os_str() == "Cellar") {
-        // In case a formula ever ships without the marker. `exe` has symlinks resolved,
-        // so this sees through the link Homebrew puts in its bin directory.
-        fixed("installed with Homebrew; use brew upgrade wordl")
-    } else if asset_name().is_none() {
-        fixed("no prebuilt binary for this platform; rebuild from source to update")
-    } else if !exe.parent().is_some_and(writable) {
-        fixed("its directory is not writable, so a package manager probably owns it; update it the way you installed it")
-    } else {
-        None
     }
 }
 
@@ -115,38 +76,6 @@ fn fresh(last: u64, now: u64) -> bool {
     now >= last && now - last < CHECK_EVERY
 }
 
-fn checked_recently() -> bool {
-    fs::read_to_string(state_dir().join(STAMP)).ok().and_then(|s| s.trim().parse().ok()).is_some_and(|last| fresh(last, now_secs()))
-}
-
-/// Notes that the release server answered just now. Only an answer is noted: a check
-/// that failed (offline, usually) is tried again at the next start.
-fn record_check() {
-    let dir = state_dir();
-    let _ = fs::create_dir_all(&dir);
-    let _ = fs::write(dir.join(STAMP), format!("{}\n", now_secs()));
-}
-
-fn base() -> String {
-    std::env::var(URL_ENV).ok().filter(|v| !v.is_empty()).unwrap_or_else(|| RELEASES.to_string())
-}
-
-fn get(url: &str, timeout: Duration) -> Result<Vec<u8>, String> {
-    if let Some(path) = url.strip_prefix("file://") {
-        return fs::read(path).map_err(|e| e.to_string());
-    }
-    let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(timeout)).build().into();
-    let mut res = agent.get(url).header("User-Agent", "wordl").call().map_err(|e| e.to_string())?;
-    res.body_mut().with_config().limit(64 << 20).read_to_vec().map_err(|e| e.to_string())
-}
-
-/// The newest released version, as numbers and as published.
-fn latest_release() -> Result<(Version, String), String> {
-    let body = get(&format!("{}/VERSION", base()), CHECK_TIMEOUT)?;
-    let text = String::from_utf8_lossy(&body).trim().trim_start_matches('v').to_string();
-    Ok((parse_version(&text).ok_or_else(|| format!("unrecognized release version {text:?}"))?, text))
-}
-
 fn sha256_hex(bytes: &[u8]) -> String {
     Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -159,84 +88,195 @@ fn expected_sum<'a>(sums: &'a str, name: &str) -> Option<&'a str> {
     })
 }
 
-/// Downloads the latest release's binary for this platform, checks it against the
-/// release's checksums, and swaps it in for `exe`.
-fn install(exe: &Path) -> Result<(), String> {
-    let name = asset_name().ok_or("no prebuilt binary for this platform")?;
-    let base = base();
-    let sums = get(&format!("{base}/SHA256SUMS"), DOWNLOAD_TIMEOUT).map_err(|e| format!("could not download checksums: {e}"))?;
-    let sums = String::from_utf8_lossy(&sums);
-    let want = expected_sum(&sums, name).ok_or_else(|| format!("the release has no checksum for {name}"))?;
-    let binary = get(&format!("{base}/{name}"), DOWNLOAD_TIMEOUT).map_err(|e| format!("could not download {name}: {e}"))?;
-    let got = sha256_hex(&binary);
-    if !got.eq_ignore_ascii_case(want) {
-        return Err(format!("checksum mismatch for {name} (expected {want}, got {got})"));
+impl Program {
+    /// One of the program's environment variables: `WORDL_<what>` for `wordl`.
+    fn env(&self, what: &str) -> String {
+        format!("{}_{what}", self.name.to_ascii_uppercase())
     }
-    // Written beside the target and renamed over it: the swap is atomic, and replacing
-    // a running program's file this way is safe.
-    let staged = exe.with_extension("new");
-    fs::write(&staged, &binary).and_then(|()| fs::set_permissions(&staged, fs::Permissions::from_mode(0o755))).and_then(|()| fs::rename(&staged, exe)).map_err(
-        |e| {
-            let _ = fs::remove_file(&staged);
-            format!("could not replace {}: {e}", exe.display())
-        },
-    )
-}
 
-/// Resolved before any replacement; afterwards the running image has no path. The real
-/// file, not a link to it: the checks in `skip_reason` are about where it is installed,
-/// and replacing a link would leave the installed file behind (and break `brew upgrade`).
-fn current_exe() -> Result<PathBuf, String> {
-    real_exe().map_err(|e| format!("cannot tell where wordl is installed: {e}"))
-}
+    /// Set on the restarted process so a failed or raced update can't loop; also the
+    /// switch to skip the check for one run.
+    fn skip_env(&self) -> String {
+        self.env("NO_UPDATE")
+    }
 
-/// Called before the game starts. Updates and restarts when a newer release exists;
-/// otherwise, or on any failure, returns so the current version runs.
-pub fn before_start(enabled: bool) {
-    let Ok(exe) = current_exe() else { return };
-    if skip_reason(enabled, false, &exe).is_some() || checked_recently() {
-        return;
+    /// Where the latest release's files are: `VERSION`, `SHA256SUMS` and one binary per
+    /// platform. No API is involved, so there is no rate limit to run into.
+    /// `<NAME>_RELEASE_URL` points the updater somewhere else; `file://` works, which is
+    /// how it is tested.
+    fn base(&self) -> String {
+        std::env::var(self.env("RELEASE_URL"))
+            .ok()
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| format!("https://github.com/{}/releases/latest/download", self.repo))
     }
-    // A failure here is usually just being offline: not worth a word on screen.
-    let Ok((latest, version)) = latest_release() else { return };
-    if parse_version(VERSION).is_none_or(|current| latest <= current) {
-        return record_check();
+
+    /// The release asset built for this platform, if there is one.
+    fn asset_name(&self) -> Option<String> {
+        target().map(|target| format!("{}-{target}", self.name))
     }
-    println!("Updating wordl {VERSION} -> {version}");
-    match install(&exe) {
-        Ok(()) => {
-            let err = Command::new(&exe).args(std::env::args_os().skip(1)).env(SKIP_ENV, "1").exec();
-            eprintln!("wordl was updated; start it again to use the new version. ({err})");
-            std::process::exit(1);
+
+    fn writable(&self, dir: &Path) -> bool {
+        let probe = dir.join(format!(".{}-write-test-{}", self.name, std::process::id()));
+        let ok = fs::write(&probe, b"").is_ok();
+        let _ = fs::remove_file(probe);
+        ok
+    }
+
+    /// The package that owns the copy at `exe`, as its marker file words it
+    /// ("Homebrew; use brew upgrade wordl"), if one does. A package that owns its copy
+    /// installs `share/<name>/managed-by` beside the `bin` directory its binary is in,
+    /// naming itself and how to upgrade. Homebrew's formula and the AUR package both
+    /// do; the game then leaves updating to them.
+    fn managed_by(&self, exe: &Path) -> Option<String> {
+        let marker = fs::read_to_string(exe.parent()?.join(format!("../share/{}/managed-by", self.name))).ok()?;
+        marker.lines().next().map(str::trim).filter(|line| !line.is_empty()).map(str::to_string)
+    }
+
+    /// Why this copy doesn't update itself, if it doesn't. `asked` is for `wordl update`:
+    /// asking explicitly overrides the two off switches, and nothing else.
+    fn skip_reason(&self, enabled: bool, asked: bool, exe: &Path) -> Option<String> {
+        let name = self.name;
+        if !asked && std::env::var_os(self.skip_env()).is_some_and(|v| !v.is_empty()) {
+            Some(format!("{} is set", self.skip_env()))
+        } else if !asked && !enabled {
+            Some(format!("turned off; '{name} update on' turns it back on"))
+        } else if checkout_root().is_some() {
+            Some("running from a source checkout; use git pull and cargo build".to_string())
+        } else if let Some(owner) = self.managed_by(exe) {
+            Some(format!("installed with {owner}"))
+        } else if exe.components().any(|c| c.as_os_str() == "Cellar") {
+            // In case a formula ever ships without the marker. `exe` has symlinks resolved,
+            // so this sees through the link Homebrew puts in its bin directory.
+            Some(format!("installed with Homebrew; use brew upgrade {name}"))
+        } else if self.asset_name().is_none() {
+            Some("no prebuilt binary for this platform; rebuild from source to update".to_string())
+        } else if !exe.parent().is_some_and(|dir| self.writable(dir)) {
+            Some("its directory is not writable, so a package manager probably owns it; update it the way you installed it".to_string())
+        } else {
+            None
         }
-        Err(e) => {
-            eprintln!("wordl: update failed ({e}); starting the current version.");
-            std::thread::sleep(Duration::from_secs(2));
+    }
+
+    fn checked_recently(&self) -> bool {
+        fs::read_to_string(state_dir(self.name).join(STAMP)).ok().and_then(|s| s.trim().parse().ok()).is_some_and(|last| fresh(last, now_secs()))
+    }
+
+    /// Notes that the release server answered just now. Only an answer is noted: a check
+    /// that failed (offline, usually) is tried again at the next start.
+    fn record_check(&self) {
+        let dir = state_dir(self.name);
+        let _ = fs::create_dir_all(&dir);
+        let _ = fs::write(dir.join(STAMP), format!("{}\n", now_secs()));
+    }
+
+    fn get(&self, url: &str, timeout: Duration) -> Result<Vec<u8>, String> {
+        if let Some(path) = url.strip_prefix("file://") {
+            return fs::read(path).map_err(|e| e.to_string());
+        }
+        let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(timeout)).build().into();
+        let mut res = agent.get(url).header("User-Agent", self.name).call().map_err(|e| e.to_string())?;
+        res.body_mut().with_config().limit(64 << 20).read_to_vec().map_err(|e| e.to_string())
+    }
+
+    /// The newest released version, as numbers and as published.
+    fn latest_release(&self) -> Result<(Version, String), String> {
+        let body = self.get(&format!("{}/VERSION", self.base()), CHECK_TIMEOUT)?;
+        let text = String::from_utf8_lossy(&body).trim().trim_start_matches('v').to_string();
+        Ok((parse_version(&text).ok_or_else(|| format!("unrecognized release version {text:?}"))?, text))
+    }
+
+    /// Whether `latest` is no newer than the running version.
+    fn up_to_date(&self, latest: Version) -> bool {
+        parse_version(self.version).is_none_or(|current| latest <= current)
+    }
+
+    /// Downloads the latest release's binary for this platform, checks it against the
+    /// release's checksums, and swaps it in for `exe`.
+    fn install(&self, exe: &Path) -> Result<(), String> {
+        let name = self.asset_name().ok_or("no prebuilt binary for this platform")?;
+        let base = self.base();
+        let sums = self.get(&format!("{base}/SHA256SUMS"), DOWNLOAD_TIMEOUT).map_err(|e| format!("could not download checksums: {e}"))?;
+        let sums = String::from_utf8_lossy(&sums);
+        let want = expected_sum(&sums, &name).ok_or_else(|| format!("the release has no checksum for {name}"))?;
+        let binary = self.get(&format!("{base}/{name}"), DOWNLOAD_TIMEOUT).map_err(|e| format!("could not download {name}: {e}"))?;
+        let got = sha256_hex(&binary);
+        if !got.eq_ignore_ascii_case(want) {
+            return Err(format!("checksum mismatch for {name} (expected {want}, got {got})"));
+        }
+        // Written beside the target and renamed over it: the swap is atomic, and replacing
+        // a running program's file this way is safe.
+        let staged = exe.with_extension("new");
+        fs::write(&staged, &binary)
+            .and_then(|()| fs::set_permissions(&staged, fs::Permissions::from_mode(0o755)))
+            .and_then(|()| fs::rename(&staged, exe))
+            .map_err(|e| {
+                let _ = fs::remove_file(&staged);
+                format!("could not replace {}: {e}", exe.display())
+            })
+    }
+
+    /// Resolved before any replacement; afterwards the running image has no path. The real
+    /// file, not a link to it: the checks in `skip_reason` are about where it is installed,
+    /// and replacing a link would leave the installed file behind (and break `brew upgrade`).
+    fn current_exe(&self) -> Result<PathBuf, String> {
+        real_exe().map_err(|e| format!("cannot tell where {} is installed: {e}", self.name))
+    }
+
+    /// Called before the game starts. Updates and restarts when a newer release exists;
+    /// otherwise, or on any failure, returns so the current version runs.
+    pub fn before_start(&self, enabled: bool) {
+        let Self { name, version: current, .. } = *self;
+        let Ok(exe) = self.current_exe() else { return };
+        if self.skip_reason(enabled, false, &exe).is_some() || self.checked_recently() {
+            return;
+        }
+        // A failure here is usually just being offline: not worth a word on screen.
+        let Ok((latest, version)) = self.latest_release() else { return };
+        if self.up_to_date(latest) {
+            return self.record_check();
+        }
+        println!("Updating {name} {current} -> {version}");
+        match self.install(&exe) {
+            Ok(()) => {
+                let err = Command::new(&exe).args(std::env::args_os().skip(1)).env(self.skip_env(), "1").exec();
+                eprintln!("{name} was updated; start it again to use the new version. ({err})");
+                std::process::exit(1);
+            }
+            Err(e) => {
+                eprintln!("{name}: update failed ({e}); starting the current version.");
+                std::thread::sleep(Duration::from_secs(2));
+            }
         }
     }
-}
 
-/// `wordl update`: the same check on demand, reporting what happened.
-pub fn command() -> Result<(), String> {
-    let exe = current_exe()?;
-    if let Some(reason) = skip_reason(true, true, &exe) {
-        return Err(format!("this copy can't update itself: {reason}"));
+    /// `wordl update`: the same check on demand, reporting what happened.
+    pub fn command(&self) -> Result<(), String> {
+        let Self { name, version: current, .. } = *self;
+        let exe = self.current_exe()?;
+        if let Some(reason) = self.skip_reason(true, true, &exe) {
+            return Err(format!("this copy can't update itself: {reason}"));
+        }
+        let (latest, version) = self.latest_release().map_err(|e| format!("could not check for updates: {e}"))?;
+        if self.up_to_date(latest) {
+            println!("{name} {current} is up to date (latest release is {version}).");
+            self.record_check();
+            return Ok(());
+        }
+        println!("Updating {name} {current} -> {version}");
+        self.install(&exe).map_err(|e| format!("update failed: {e}"))?;
+        println!("Updated to {version}.");
+        Ok(())
     }
-    let (latest, version) = latest_release().map_err(|e| format!("could not check for updates: {e}"))?;
-    if parse_version(VERSION).is_none_or(|current| latest <= current) {
-        println!("wordl {VERSION} is up to date (latest release is {version}).");
-        record_check();
-        return Ok(());
-    }
-    println!("Updating wordl {VERSION} -> {version}");
-    install(&exe).map_err(|e| format!("update failed: {e}"))?;
-    println!("Updated to {version}.");
-    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const WORDL: Program = Program { name: "wordl", version: env!("CARGO_PKG_VERSION"), repo: "anwarahmed/wordl" };
+    /// A game built on the library, as it would describe itself.
+    const OTHER: Program = Program { name: "funwordl", version: "1.2.3", repo: "someone/funwordl" };
 
     #[test]
     fn parses_and_orders_versions() {
@@ -246,7 +286,7 @@ mod tests {
         assert_eq!(parse_version("1.2.3.4"), None);
         assert_eq!(parse_version("v1.2.x"), None);
         assert!(parse_version("0.10.0") > parse_version("0.9.9"));
-        assert!(parse_version(VERSION).is_some());
+        assert!(parse_version(WORDL.version).is_some());
     }
 
     #[test]
@@ -269,6 +309,26 @@ mod tests {
     }
 
     #[test]
+    fn a_program_is_updated_under_its_own_name() {
+        assert_eq!(WORDL.skip_env(), "WORDL_NO_UPDATE");
+        assert_eq!(OTHER.env("RELEASE_URL"), "FUNWORDL_RELEASE_URL");
+        if let Some(target) = target() {
+            assert_eq!(WORDL.asset_name(), Some(format!("wordl-{target}")));
+            assert_eq!(OTHER.asset_name(), Some(format!("funwordl-{target}")));
+        }
+        assert!(OTHER.up_to_date((1, 2, 3)) && !OTHER.up_to_date((1, 2, 4)));
+        // One game's marker file says nothing about another's copy.
+        let root = std::env::temp_dir().join(format!("wordl-test-{}-names", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("bin")).unwrap();
+        fs::create_dir_all(root.join("share/funwordl")).unwrap();
+        fs::write(root.join("share/funwordl/managed-by"), "Homebrew; use brew upgrade funwordl\n").unwrap();
+        assert_eq!(OTHER.managed_by(&root.join("bin/funwordl")).as_deref(), Some("Homebrew; use brew upgrade funwordl"));
+        assert_eq!(WORDL.managed_by(&root.join("bin/wordl")), None);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn hashes_like_sha256sum() {
         assert_eq!(sha256_hex(b"abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     }
@@ -279,12 +339,12 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("bin")).unwrap();
         let exe = root.join("bin/wordl");
-        assert_eq!(managed_by(&exe), None);
+        assert_eq!(WORDL.managed_by(&exe), None);
         fs::create_dir_all(root.join("share/wordl")).unwrap();
         fs::write(root.join("share/wordl/managed-by"), "Homebrew; use brew upgrade wordl\n").unwrap();
-        assert_eq!(managed_by(&exe).as_deref(), Some("Homebrew; use brew upgrade wordl"));
+        assert_eq!(WORDL.managed_by(&exe).as_deref(), Some("Homebrew; use brew upgrade wordl"));
         fs::write(root.join("share/wordl/managed-by"), "\n").unwrap();
-        assert_eq!(managed_by(&exe), None);
+        assert_eq!(WORDL.managed_by(&exe), None);
         let _ = fs::remove_dir_all(root);
     }
 
@@ -296,9 +356,9 @@ mod tests {
         fs::create_dir_all(root.join("bin")).unwrap();
         fs::write(root.join("share/wordl/managed-by"), "pacman; update the wordl-bin package\n").unwrap();
         let exe = root.join("bin/wordl");
-        assert_eq!(skip_reason(false, false, &exe).as_deref(), Some("turned off; 'wordl update on' turns it back on"));
+        assert_eq!(WORDL.skip_reason(false, false, &exe).as_deref(), Some("turned off; 'wordl update on' turns it back on"));
         // Asked for explicitly, the switch is ignored and the real reason is given.
-        assert_eq!(skip_reason(false, true, &exe).as_deref(), Some("installed with pacman; update the wordl-bin package"));
+        assert_eq!(WORDL.skip_reason(false, true, &exe).as_deref(), Some("installed with pacman; update the wordl-bin package"));
         let _ = fs::remove_dir_all(root);
     }
 }

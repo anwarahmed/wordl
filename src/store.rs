@@ -1,7 +1,7 @@
 //! What is kept on disk: statistics and settings in one file, and the daily puzzle's
 //! progress in another. Both are `key=value` lines in `$XDG_STATE_HOME/wordl`, the
 //! same files the first, bash, version of the game wrote, so nothing was lost in the
-//! move.
+//! move. A game built on this library keeps its own files, in a directory of its own.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -9,14 +9,14 @@ use std::path::{Path, PathBuf};
 
 use crate::game::{self, Difficulty, Game, Mode, Status};
 
-/// `~/.local/state/wordl` unless `XDG_STATE_HOME` says otherwise, on macOS too, so the
-/// game behaves the same everywhere.
-pub fn state_dir() -> PathBuf {
+/// Where the program called `name` keeps its files: `~/.local/state/<name>` unless
+/// `XDG_STATE_HOME` says otherwise, on macOS too, so the game behaves the same everywhere.
+pub fn state_dir(name: &str) -> PathBuf {
     match std::env::var_os("XDG_STATE_HOME").filter(|v| !v.is_empty()) {
         Some(dir) => PathBuf::from(dir),
         None => PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/state"),
     }
-    .join("wordl")
+    .join(name)
 }
 
 /// The file this program really is, with symlinks resolved. `current_exe` alone resolves
@@ -37,7 +37,7 @@ pub fn checkout_root() -> Option<PathBuf> {
 
 /// Reads `key=value` lines, ignoring anything that is not plain: keys are lowercase
 /// letters, digits and underscores, values letters, digits and commas.
-fn read_pairs(path: &Path) -> BTreeMap<String, String> {
+pub fn read_pairs(path: &Path) -> BTreeMap<String, String> {
     let plain_key = |k: &str| !k.is_empty() && k.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
     let plain_value = |v: &str| v.bytes().all(|b| b.is_ascii_alphanumeric() || b == b',');
     fs::read_to_string(path)
@@ -49,7 +49,8 @@ fn read_pairs(path: &Path) -> BTreeMap<String, String> {
         .collect()
 }
 
-fn write_pairs(path: &Path, pairs: &BTreeMap<String, String>) {
+/// Writes `key=value` lines that `read_pairs` reads back.
+pub fn write_pairs(path: &Path, pairs: &BTreeMap<String, String>) {
     let text: String = pairs.iter().map(|(k, v)| format!("{k}={v}\n")).collect();
     // Losing statistics is not worth stopping a game for.
     let _ = path.parent().map(fs::create_dir_all);
@@ -64,6 +65,11 @@ pub struct Stats {
 }
 
 impl Stats {
+    /// The directory the files are in, for a game that keeps more of them there.
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
     pub fn load(dir: PathBuf) -> Self {
         let values = read_pairs(&dir.join("stats"));
         Self { dir, values }
@@ -147,6 +153,7 @@ impl Stats {
             ("answer".to_string(), game::text(&game.answer)),
             ("hard".to_string(), game.difficulty.index().to_string()),
             ("gaveup".to_string(), (game.gave_up as u8).to_string()),
+            ("tries".to_string(), game.tries.to_string()),
             ("guesses".to_string(), guesses.join(",")),
         ]);
         write_pairs(&self.dir.join("daily"), &pairs);
@@ -160,7 +167,9 @@ impl Stats {
         }
         let answer = game::word(saved.get("answer")?).filter(|_| saved["answer"].bytes().all(|b| b.is_ascii_uppercase()))?;
         let difficulty = Difficulty::from_index(saved.get("hard").and_then(|v| v.parse::<usize>().ok()).filter(|&v| v <= 2).unwrap_or(0));
-        let mut game = Game::new(Mode::Daily, today, answer, difficulty);
+        // Absent in files written before a game could allow anything but six.
+        let tries = saved.get("tries").and_then(|v| v.parse::<usize>().ok()).filter(|v| (1..=game::MAX_TRIES).contains(v)).unwrap_or(game::TRIES);
+        let mut game = Game::new(Mode::Daily, today, answer, difficulty).with_tries(tries);
         for guess in saved.get("guesses").map(String::as_str).unwrap_or("").split(',').filter_map(game::word) {
             if game.playing() {
                 game.add_guess(guess);
@@ -256,6 +265,21 @@ mod tests {
         stats.save_daily(&game);
         let back = stats.load_daily(200).unwrap();
         assert_eq!((back.guesses.len(), back.status, back.gave_up), (2, Status::Lost, true));
+
+        // A game that allows more guesses is still under way after its sixth.
+        let long = ["SLATE"; 6];
+        stats.save_daily(&finished(Mode::Daily, 200, &long));
+        assert_eq!(stats.load_daily(200).unwrap().status, Status::Lost);
+        let mut game = Game::new(Mode::Daily, 200, game::word("CRANE").unwrap(), Difficulty::Normal).with_tries(8);
+        long.iter().for_each(|g| game.add_guess(game::word(g).unwrap()));
+        stats.save_daily(&game);
+        let back = stats.load_daily(200).unwrap();
+        assert_eq!((back.guesses.len(), back.tries, back.status), (6, 8, Status::Playing));
+        // A file from before the count was saved means six.
+        let mut old = read_pairs(&dir.join("daily"));
+        old.remove("tries");
+        write_pairs(&dir.join("daily"), &old);
+        assert_eq!(stats.load_daily(200).unwrap().status, Status::Lost);
 
         // Practice games are never saved.
         let _ = fs::remove_file(dir.join("daily"));
