@@ -44,7 +44,8 @@ points it, and the self-updater, at another download base (a `file://` directory
   Homebrew formula (`Formula/wordl.rb`, written by its `scripts/formulae/wordl.sh`). It
   takes direct pushes, because its bot commits formulae to `main`.
 - **Sibling repo:** https://github.com/anwarahmed/funwordl is a second game, more
-  playful and easier by default, built on this crate's library half (see "A library
+  playful (sounds, hints, stars, many bright themes, an Easy level that takes any
+  five letters as a guess), built on this crate's library half (see "A library
   and a game" below). It names this repository at a commit in its `Cargo.toml`, so a
   change to `game.rs`, `store.rs`, `update.rs`, `words.rs` or `words/` reaches it only
   when that commit is raised there. Before merging a change to what those files make
@@ -166,7 +167,10 @@ so the game's modules reach them as `crate::game` and so on.
   a release"). The one rule added for funwordl's sake is the number of guesses:
   `Game::tries`, six unless `with_tries` says otherwise, saved with the daily puzzle
   as `tries` (absent means six, so older files and older versions are unaffected).
-  Here it is always six.
+  Here it is always six. funwordl's Easy level had eight guesses up to its 0.1.2;
+  since 0.1.3 every funwordl game has six too, and it uses `tries` only to open a
+  daily puzzle that an older copy saved with eight. Keep the field: those saved
+  files exist.
 - **Rust + ratatui, like the user's typeshelf.** The first version (0.1.x) was a bash
   script, because the request said "bash-based"; the user later clarified that meant
   "runs in a terminal", not "written in bash", and asked for a rewrite in Rust keeping
